@@ -13,6 +13,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
@@ -26,6 +28,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -259,6 +265,17 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                         indicatorColor = MaterialTheme.colorScheme.primary
                     )
                 )
+                NavigationBarItem(
+                    selected = currentTab == 2,
+                    onClick = { currentTab = 2 },
+                    icon = { Icon(Icons.Default.Timer, contentDescription = "Timer") },
+                    label = { Text("Timer") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
             }
         }
     ) { paddingValues ->
@@ -309,6 +326,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 if (tab == 0) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         if (topics.isNotEmpty()) {
+                            ExamCountdownCard(currentExam)
                             val overallCompletion = viewModel.getCompletionPercentage(topics)
                             OverallProgressCard(progress = overallCompletion)
 
@@ -339,8 +357,10 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                             }
                         }
                     }
-                } else {
+                } else if (tab == 1) {
                     AnalysisScreen(viewModel)
+                } else {
+                    TimerScreen(viewModel)
                 }
             }
         }
@@ -596,8 +616,18 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
                     }
                 }
             } else {
+                val averageScore = testMarks.map { (it.score / it.maxScore) * 100 }.average().toFloat()
+                val highestScore = testMarks.maxOf { (it.score / it.maxScore) * 100 }
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    StatCard("Average", String.format("%.1f%%", averageScore), Modifier.weight(1f))
+                    StatCard("Highest", String.format("%.1f%%", highestScore), Modifier.weight(1f))
+                    StatCard("Tests", testMarks.size.toString(), Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 Card(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxWidth().height(250.dp),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -608,8 +638,39 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
                         TestScoresChart(testMarks)
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text("Recent Tests", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(testMarks.reversed()) { test ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text(test.testName, fontWeight = FontWeight.SemiBold)
+                                    val date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(test.dateMillis))
+                                    Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                val percentage = (test.score / test.maxScore) * 100
+                                val color = if (percentage >= 80) androidx.compose.ui.graphics.Color(0xFF4CAF50) else if (percentage >= 50) androidx.compose.ui.graphics.Color(0xFFFFC107) else MaterialTheme.colorScheme.error
+                                Text(
+                                    text = String.format("%.1f%%", percentage),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = color
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp))
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(80.dp))
         }
 
         FloatingActionButton(
@@ -628,32 +689,35 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
         
         AlertDialog(
             onDismissRequest = { showAddTestDialog = false },
-            title = { Text("Add Test Mark") },
+            title = { Text("Add Test Score") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column {
                     OutlinedTextField(
                         value = testName,
                         onValueChange = { testName = it },
-                        label = { Text("Test Name (e.g. Mock 1)") },
+                        label = { Text("Test Name") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = scoreStr,
-                        onValueChange = { scoreStr = it },
-                        label = { Text("Score obtained") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = maxScoreStr,
-                        onValueChange = { maxScoreStr = it },
-                        label = { Text("Maximum Score") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = scoreStr,
+                            onValueChange = { scoreStr = it },
+                            label = { Text("Your Score") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = maxScoreStr,
+                            onValueChange = { maxScoreStr = it },
+                            label = { Text("Max Score") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -661,14 +725,14 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
                     onClick = {
                         val score = scoreStr.toFloatOrNull()
                         val maxScore = maxScoreStr.toFloatOrNull()
-                        if (testName.isNotBlank() && score != null && maxScore != null) {
+                        if (testName.isNotBlank() && score != null && maxScore != null && maxScore > 0 && score <= maxScore) {
                             viewModel.addTestMark(testName, score, maxScore)
                             showAddTestDialog = false
                         }
                     },
                     enabled = testName.isNotBlank() && scoreStr.isNotBlank() && maxScoreStr.isNotBlank()
                 ) {
-                    Text("Add")
+                    Text("Save")
                 }
             },
             dismissButton = {
@@ -679,6 +743,21 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
         )
     }
 }
+
+@Composable
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+        }
+    }
+}
+
 
 @Composable
 fun TestScoresChart(testMarks: List<com.example.data.TestMark>) {
@@ -817,5 +896,169 @@ fun TopicItem(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun TimerScreen(viewModel: SyllabusViewModel) {
+    val timeInSeconds by viewModel.timerTime.collectAsStateWithLifecycle()
+    val isRunning by viewModel.isTimerRunning.collectAsStateWithLifecycle()
+
+    val minutes = timeInSeconds / 60
+    val seconds = timeInSeconds % 60
+    val timeString = String.format("%02d:%02d", minutes, seconds)
+    
+    var showCustomTimeDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Study Timer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Box(
+                modifier = Modifier
+                    .size(240.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = timeString,
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 56.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                if (isRunning) {
+                    FloatingActionButton(
+                        onClick = { viewModel.pauseTimer() },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Pause, contentDescription = "Pause")
+                    }
+                } else {
+                    FloatingActionButton(
+                        onClick = { viewModel.startTimer() },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.PlayArrow, contentDescription = "Start")
+                    }
+                }
+                
+                FloatingActionButton(
+                    onClick = { viewModel.resetTimer() },
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Stop, contentDescription = "Stop")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            TextButton(onClick = { showCustomTimeDialog = true }) {
+                Text("Set Custom Time")
+            }
+        }
+    }
+    
+    if (showCustomTimeDialog) {
+        var minutesStr by remember { mutableStateOf("25") }
+        AlertDialog(
+            onDismissRequest = { showCustomTimeDialog = false },
+            title = { Text("Set Timer Duration") },
+            text = {
+                OutlinedTextField(
+                    value = minutesStr,
+                    onValueChange = { minutesStr = it },
+                    label = { Text("Minutes") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val mins = minutesStr.toIntOrNull()
+                        if (mins != null && mins > 0) {
+                            viewModel.resetTimer(mins)
+                            showCustomTimeDialog = false
+                        }
+                    }
+                ) {
+                    Text("Set")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomTimeDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+@Composable
+fun ExamCountdownCard(exam: String?) {
+    if (exam == null) return
+    
+    val examDate = when (exam.uppercase()) {
+        "JEE" -> java.time.LocalDate.of(2027, 1, 24)
+        "NEET" -> java.time.LocalDate.of(2027, 5, 2)
+        "CUET" -> java.time.LocalDate.of(2027, 5, 15)
+        else -> return
+    }
+    
+    val today = java.time.LocalDate.now()
+    val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(today, examDate)
+    
+    if (daysLeft < 0) return
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "$exam 2027 Countdown",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Keep up the hard work!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$daysLeft",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = "Days Left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
     }
 }

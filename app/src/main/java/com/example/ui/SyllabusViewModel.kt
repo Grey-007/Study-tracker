@@ -37,6 +37,37 @@ class SyllabusViewModel(
     private val _currentExam = MutableStateFlow<String?>(null)
     val currentExam: StateFlow<String?> = _currentExam
 
+    private val _timerTime = MutableStateFlow(25 * 60)
+    val timerTime: StateFlow<Int> = _timerTime
+
+    private val _isTimerRunning = MutableStateFlow(false)
+    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning
+
+    private var timerJob: kotlinx.coroutines.Job? = null
+
+    fun startTimer() {
+        if (_isTimerRunning.value) return
+        _isTimerRunning.value = true
+        timerJob = viewModelScope.launch {
+            while (_timerTime.value > 0) {
+                kotlinx.coroutines.delay(1000)
+                _timerTime.value -= 1
+            }
+            _isTimerRunning.value = false
+        }
+    }
+
+    fun pauseTimer() {
+        timerJob?.cancel()
+        _isTimerRunning.value = false
+    }
+
+    fun resetTimer(minutes: Int = 25) {
+        timerJob?.cancel()
+        _isTimerRunning.value = false
+        _timerTime.value = minutes * 60
+    }
+
     val topics: StateFlow<List<Topic>> = combine(_currentExam, selectedSubjects) { exam, subjects ->
         exam to subjects
     }.flatMapLatest { (exam, subjects) ->
