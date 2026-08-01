@@ -9,5 +9,6 @@ data class Topic(
     val exam: String,
     val subject: String,
     val name: String,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val studyLinks: String? = null
 )

@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -323,7 +325,10 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                                         SubjectCard(
                                             subject = subject,
                                             topics = subjectTopics,
-                                            onTopicToggle = { viewModel.toggleTopicCompletion(it) }
+                                            onTopicToggle = { viewModel.toggleTopicCompletion(it) },
+                                            onDeleteTopic = { viewModel.deleteTopic(it) },
+                                            onUpdateTopicLinks = { topic, links -> viewModel.updateTopicLinks(topic, links) },
+                                            onAddTopic = { name -> viewModel.addTopic(subject, name) }
                                         )
                                     }
                                 }
@@ -428,9 +433,13 @@ fun OverallProgressCard(progress: Float) {
 fun SubjectCard(
     subject: String,
     topics: List<Topic>,
-    onTopicToggle: (Topic) -> Unit
+    onTopicToggle: (Topic) -> Unit,
+    onDeleteTopic: (Topic) -> Unit,
+    onUpdateTopicLinks: (Topic, String) -> Unit,
+    onAddTopic: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showAddTopicDialog by remember { mutableStateOf(false) }
     val completedCount = topics.count { it.isCompleted }
     val progress = if (topics.isEmpty()) 0f else completedCount.toFloat() / topics.size
 
@@ -510,48 +519,60 @@ fun SubjectCard(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     topics.forEach { topic ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.background)
-                                .clickable { onTopicToggle(topic) }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (topic.isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (topic.isCompleted) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                                    contentDescription = "Toggle completion",
-                                    tint = if (topic.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = topic.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (topic.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "${topic.subject} • ${topic.exam}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                        TopicItem(
+                            topic = topic,
+                            onTopicToggle = onTopicToggle,
+                            onDeleteTopic = onDeleteTopic,
+                            onUpdateTopicLinks = onUpdateTopicLinks
+                        )
+                    }
+                    
+                    TextButton(
+                        onClick = { showAddTopicDialog = true },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add Chapter")
                     }
                 }
             }
         }
+    }
+
+    if (showAddTopicDialog) {
+        var newTopicName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddTopicDialog = false },
+            title = { Text("Add Chapter to $subject") },
+            text = {
+                OutlinedTextField(
+                    value = newTopicName,
+                    onValueChange = { newTopicName = it },
+                    label = { Text("Chapter Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTopicName.isNotBlank()) {
+                            onAddTopic(newTopicName)
+                            showAddTopicDialog = false
+                        }
+                    },
+                    enabled = newTopicName.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddTopicDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -709,5 +730,92 @@ fun TestScoresChart(testMarks: List<com.example.data.TestMark>) {
                 center = point
             )
         }
+    }
+}
+
+@Composable
+fun TopicItem(
+    topic: Topic,
+    onTopicToggle: (Topic) -> Unit,
+    onDeleteTopic: (Topic) -> Unit,
+    onUpdateTopicLinks: (Topic, String) -> Unit
+) {
+    var showLinksDialog by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.background)
+            .clickable { onTopicToggle(topic) }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (topic.isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (topic.isCompleted) Icons.Default.CheckCircle else Icons.Outlined.Circle,
+                contentDescription = "Toggle completion",
+                tint = if (topic.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = topic.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (topic.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
+            )
+            if (!topic.studyLinks.isNullOrBlank()) {
+                Text(
+                    text = "View links attached",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        IconButton(onClick = { showLinksDialog = true }) {
+            Icon(Icons.Default.Link, contentDescription = "Study Links", tint = MaterialTheme.colorScheme.primary)
+        }
+        IconButton(onClick = { onDeleteTopic(topic) }) {
+            Icon(Icons.Default.Delete, contentDescription = "Delete Topic", tint = MaterialTheme.colorScheme.error)
+        }
+    }
+
+    if (showLinksDialog) {
+        var links by remember { mutableStateOf(topic.studyLinks ?: "") }
+        AlertDialog(
+            onDismissRequest = { showLinksDialog = false },
+            title = { Text("Study Links & Notes") },
+            text = {
+                OutlinedTextField(
+                    value = links,
+                    onValueChange = { links = it },
+                    label = { Text("Links / Notes") },
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    onUpdateTopicLinks(topic, links)
+                    showLinksDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLinksDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

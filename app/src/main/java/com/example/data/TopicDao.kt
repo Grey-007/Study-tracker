@@ -1,6 +1,7 @@
 package com.example.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -20,6 +21,9 @@ interface TopicDao {
 
     @Update
     suspend fun updateTopic(topic: Topic)
+
+    @Delete
+    suspend fun deleteTopic(topic: Topic)
 
     @Query("SELECT COUNT(*) FROM topics")
     suspend fun getTopicCount(): Int

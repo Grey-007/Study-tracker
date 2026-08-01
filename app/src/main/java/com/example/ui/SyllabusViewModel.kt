@@ -116,6 +116,25 @@ class SyllabusViewModel(
         }
     }
 
+    fun updateTopicLinks(topic: Topic, links: String) {
+        viewModelScope.launch {
+            repository.updateTopic(topic.copy(studyLinks = links))
+        }
+    }
+
+    fun addTopic(subject: String, name: String) {
+        val exam = _currentExam.value ?: return
+        viewModelScope.launch {
+            repository.insertTopic(Topic(exam = exam, subject = subject, name = name))
+        }
+    }
+
+    fun deleteTopic(topic: Topic) {
+        viewModelScope.launch {
+            repository.deleteTopic(topic)
+        }
+    }
+
     fun getCompletionPercentage(subjectTopics: List<Topic>): Float {
         if (subjectTopics.isEmpty()) return 0f
         val completed = subjectTopics.count { it.isCompleted }
