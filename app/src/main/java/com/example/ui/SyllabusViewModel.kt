@@ -100,6 +100,13 @@ class SyllabusViewModel(
         initialValue = emptyList()
     )
 
+    val allTopics: StateFlow<List<Topic>> = repository.getAllTopics()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+        
     val testMarks: StateFlow<List<com.example.data.TestMark>> = _currentExam.flatMapLatest { exam ->
         if (exam == null) {
             flowOf(emptyList())

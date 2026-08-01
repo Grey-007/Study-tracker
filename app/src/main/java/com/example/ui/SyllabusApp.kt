@@ -37,6 +37,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -227,6 +228,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
     val topics by viewModel.topics.collectAsStateWithLifecycle()
     val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
     val selectedSubjects by viewModel.selectedSubjects.collectAsStateWithLifecycle()
+    val allTopics by viewModel.allTopics.collectAsStateWithLifecycle()
 
     var currentTab by remember { mutableStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
@@ -284,8 +286,8 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 NavigationBarItem(
                     selected = currentTab == 0,
                     onClick = { currentTab = 0 },
-                    icon = { Icon(Icons.Default.List, contentDescription = "Syllabus") },
-                    label = { Text("Syllabus") },
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Overview") },
+                    label = { Text("Overview") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -295,8 +297,8 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 NavigationBarItem(
                     selected = currentTab == 1,
                     onClick = { currentTab = 1 },
-                    icon = { Icon(Icons.Default.Insights, contentDescription = "Analysis") },
-                    label = { Text("Analysis") },
+                    icon = { Icon(Icons.Default.List, contentDescription = "Syllabus") },
+                    label = { Text("Syllabus") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -306,6 +308,17 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 NavigationBarItem(
                     selected = currentTab == 2,
                     onClick = { currentTab = 2 },
+                    icon = { Icon(Icons.Default.Insights, contentDescription = "Analysis") },
+                    label = { Text("Analysis") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                NavigationBarItem(
+                    selected = currentTab == 3,
+                    onClick = { currentTab = 3 },
                     icon = { Icon(Icons.Default.Timer, contentDescription = "Timer") },
                     label = { Text("Timer") },
                     colors = NavigationBarItemDefaults.colors(
@@ -322,7 +335,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (selectedExams.size > 1) {
+            if (currentTab == 1 && selectedExams.size > 1) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -362,8 +375,17 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 modifier = Modifier.weight(1f)
             ) { tab ->
                 if (tab == 0) {
+                    OverviewScreen(
+                        selectedExams = selectedExams,
+                        selectedSubjects = selectedSubjects,
+                        allTopics = allTopics,
+                        onExamClick = { exam -> 
+                            viewModel.selectExam(exam)
+                            currentTab = 1
+                        }
+                    )
+                } else if (tab == 1) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        
                         ExamCountdownCard(currentExam)
                         val overallCompletion = viewModel.getCompletionPercentage(topics)
                         OverallProgressCard(progress = overallCompletion)
@@ -391,9 +413,8 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                                 }
                             }
                         }
-
                     }
-                } else if (tab == 1) {
+                } else if (tab == 2) {
                     AnalysisScreen(viewModel)
                 } else {
                     TimerScreen(viewModel)
@@ -1384,6 +1405,100 @@ fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
                     checked = isDarkMode ?: false, // Assuming system default if null, but let's toggle explicitly
                     onCheckedChange = { viewModel.updateDarkMode(it) }
                 )
+            }
+        }
+    }
+}
+@Composable
+fun OverviewScreen(
+    selectedExams: Set<String>,
+    selectedSubjects: Set<String>,
+    allTopics: List<Topic>,
+    onExamClick: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text(
+                "Your Exams",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        
+        items(selectedExams.toList()) { exam ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onExamClick(exam) },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = exam,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    val examTopics = allTopics.filter { it.exam == exam }
+                    
+                    // Filter subjects that belong to this exam, or just show all selected subjects for this exam
+                    // Let's deduce what subjects belong to the exam based on Topics or a hardcoded list.
+                    val getSubjectsForExam = { e: String ->
+                        when (e) {
+                            "JEE" -> listOf("Physics", "Chemistry", "Maths")
+                            "NEET" -> listOf("Physics", "Chemistry", "Biology")
+                            "CUET" -> listOf("General Test", "English")
+                            else -> emptyList()
+                        }
+                    }
+                    val examSubjects = selectedSubjects.intersect(getSubjectsForExam(exam).toSet())
+                    
+                    if (examSubjects.isEmpty()) {
+                        Text("No subjects selected", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        examSubjects.forEach { subject ->
+                            val subjectTopics = examTopics.filter { it.subject == subject }
+                            val total = subjectTopics.size
+                            val completed = subjectTopics.count { it.isCompleted }
+                            val progress = if (total == 0) 0f else completed.toFloat() / total
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = subject,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${(progress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
             }
         }
     }

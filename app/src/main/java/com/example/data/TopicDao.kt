@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.Flow
 interface TopicDao {
     @Query("SELECT * FROM topics WHERE exam = :exam ORDER BY subject ASC, name ASC")
     fun getTopicsByExam(exam: String): Flow<List<Topic>>
+    
+    @Query("SELECT * FROM topics")
+    fun getAllTopics(): Flow<List<Topic>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTopic(topic: Topic)

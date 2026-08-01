@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 class TopicRepository(private val topicDao: TopicDao) {
     fun getTopicsByExam(exam: String): Flow<List<Topic>> = topicDao.getTopicsByExam(exam)
+    fun getAllTopics(): Flow<List<Topic>> = topicDao.getAllTopics()
 
     suspend fun updateTopic(topic: Topic) {
         topicDao.updateTopic(topic)
