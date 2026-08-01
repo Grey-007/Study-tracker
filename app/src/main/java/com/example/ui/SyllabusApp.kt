@@ -226,6 +226,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
     val currentExam by viewModel.currentExam.collectAsStateWithLifecycle()
     val topics by viewModel.topics.collectAsStateWithLifecycle()
     val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
+    val selectedSubjects by viewModel.selectedSubjects.collectAsStateWithLifecycle()
 
     var currentTab by remember { mutableStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
@@ -362,37 +363,35 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
             ) { tab ->
                 if (tab == 0) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (topics.isNotEmpty()) {
-                            ExamCountdownCard(currentExam)
-                            val overallCompletion = viewModel.getCompletionPercentage(topics)
-                            OverallProgressCard(progress = overallCompletion)
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            val subjects = topics.groupBy { it.subject }
-                            LazyColumn(
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                subjects.forEach { (subject, subjectTopics) ->
-                                    item(key = subject) {
-                                        SubjectCard(
-                                            subject = subject,
-                                            topics = subjectTopics,
-                                            onTopicToggle = { viewModel.toggleTopicCompletion(it) },
-                                            onDeleteTopic = { viewModel.deleteTopic(it) },
-                                            onUpdateTopicLinks = { topic, links -> viewModel.updateTopicLinks(topic, links) },
-                                            onAddTopic = { name -> viewModel.addTopic(currentExam ?: "", subject, name) }
-                                        )
-                                    }
+                        
+                        ExamCountdownCard(currentExam)
+                        val overallCompletion = viewModel.getCompletionPercentage(topics)
+                        OverallProgressCard(progress = overallCompletion)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        val subjectTopicsMap = selectedSubjects.associateWith { subject ->
+                            topics.filter { it.subject == subject }
+                        }
+                        
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            subjectTopicsMap.forEach { (subject, subjectTopics) ->
+                                item(key = subject) {
+                                    SubjectCard(
+                                        subject = subject,
+                                        topics = subjectTopics,
+                                        onTopicToggle = { viewModel.toggleTopicCompletion(it) },
+                                        onDeleteTopic = { viewModel.deleteTopic(it) },
+                                        onUpdateTopicLinks = { topic, links -> viewModel.updateTopicLinks(topic, links) },
+                                        onAddTopic = { name -> viewModel.addTopic(currentExam ?: "", subject, name) }
+                                    )
                                 }
                             }
-                        } else {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
                         }
+
                     }
                 } else if (tab == 1) {
                     AnalysisScreen(viewModel)

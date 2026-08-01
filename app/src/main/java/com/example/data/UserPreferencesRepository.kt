@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
@@ -22,32 +23,32 @@ class UserPreferencesRepository(private val context: Context) {
     private val THEME_COLOR = androidx.datastore.preferences.core.intPreferencesKey("theme_color")
     private val DARK_MODE = booleanPreferencesKey("dark_mode")
 
-    val isSetupComplete: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val isSetupComplete: Flow<Boolean> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[IS_SETUP_COMPLETE] ?: false
     }
 
-    val selectedExams: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+    val selectedExams: Flow<Set<String>> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[SELECTED_EXAMS] ?: emptySet()
     }
 
-    val selectedSubjects: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+    val selectedSubjects: Flow<Set<String>> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[SELECTED_SUBJECTS] ?: emptySet()
     }
 
-    val userName: Flow<String?> = context.dataStore.data.map { preferences ->
+    val userName: Flow<String?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[USER_NAME]
     }
 
-    val profilePicUri: Flow<String?> = context.dataStore.data.map { preferences ->
+    val profilePicUri: Flow<String?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[PROFILE_PIC_URI]
     }
-    val userAim: Flow<String?> = context.dataStore.data.map { preferences ->
+    val userAim: Flow<String?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[USER_AIM]
     }
-    val themeColor: Flow<Int?> = context.dataStore.data.map { preferences ->
+    val themeColor: Flow<Int?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[THEME_COLOR]
     }
-    val isDarkMode: Flow<Boolean?> = context.dataStore.data.map { preferences ->
+    val isDarkMode: Flow<Boolean?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[DARK_MODE]
     }
 
