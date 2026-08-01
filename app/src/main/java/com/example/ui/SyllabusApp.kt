@@ -20,7 +20,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -196,6 +202,8 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
     val topics by viewModel.topics.collectAsStateWithLifecycle()
     val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
 
+    var currentTab by remember { mutableStateOf(0) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -222,6 +230,34 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                NavigationBarItem(
+                    selected = currentTab == 0,
+                    onClick = { currentTab = 0 },
+                    icon = { Icon(Icons.Default.List, contentDescription = "Syllabus") },
+                    label = { Text("Syllabus") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                NavigationBarItem(
+                    selected = currentTab == 1,
+                    onClick = { currentTab = 1 },
+                    icon = { Icon(Icons.Default.Insights, contentDescription = "Analysis") },
+                    label = { Text("Analysis") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -260,30 +296,46 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (topics.isNotEmpty()) {
-                val overallCompletion = viewModel.getCompletionPercentage(topics)
-                OverallProgressCard(progress = overallCompletion)
+            AnimatedContent(
+                targetState = currentTab,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(500))
+                },
+                label = "tab_transition",
+                modifier = Modifier.weight(1f)
+            ) { tab ->
+                if (tab == 0) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (topics.isNotEmpty()) {
+                            val overallCompletion = viewModel.getCompletionPercentage(topics)
+                            OverallProgressCard(progress = overallCompletion)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                val subjects = topics.groupBy { it.subject }
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    subjects.forEach { (subject, subjectTopics) ->
-                        item(key = subject) {
-                            SubjectCard(
-                                subject = subject,
-                                topics = subjectTopics,
-                                onTopicToggle = { viewModel.toggleTopicCompletion(it) }
-                            )
+                            val subjects = topics.groupBy { it.subject }
+                            LazyColumn(
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                subjects.forEach { (subject, subjectTopics) ->
+                                    item(key = subject) {
+                                        SubjectCard(
+                                            subject = subject,
+                                            topics = subjectTopics,
+                                            onTopicToggle = { viewModel.toggleTopicCompletion(it) }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
                         }
                     }
-                }
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                } else {
+                    AnalysisScreen(viewModel)
                 }
             }
         }
@@ -499,6 +551,163 @@ fun SubjectCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AnalysisScreen(viewModel: SyllabusViewModel) {
+    val testMarks by viewModel.testMarks.collectAsStateWithLifecycle()
+    var showAddTestDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text("Performance Analysis", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (testMarks.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No test marks recorded yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Add your offline test marks to see trends.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Test Scores Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TestScoresChart(testMarks)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+
+        FloatingActionButton(
+            onClick = { showAddTestDialog = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Test Mark")
+        }
+    }
+
+    if (showAddTestDialog) {
+        var testName by remember { mutableStateOf("") }
+        var scoreStr by remember { mutableStateOf("") }
+        var maxScoreStr by remember { mutableStateOf("") }
+        
+        AlertDialog(
+            onDismissRequest = { showAddTestDialog = false },
+            title = { Text("Add Test Mark") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = testName,
+                        onValueChange = { testName = it },
+                        label = { Text("Test Name (e.g. Mock 1)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = scoreStr,
+                        onValueChange = { scoreStr = it },
+                        label = { Text("Score obtained") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = maxScoreStr,
+                        onValueChange = { maxScoreStr = it },
+                        label = { Text("Maximum Score") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val score = scoreStr.toFloatOrNull()
+                        val maxScore = maxScoreStr.toFloatOrNull()
+                        if (testName.isNotBlank() && score != null && maxScore != null) {
+                            viewModel.addTestMark(testName, score, maxScore)
+                            showAddTestDialog = false
+                        }
+                    },
+                    enabled = testName.isNotBlank() && scoreStr.isNotBlank() && maxScoreStr.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddTestDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun TestScoresChart(testMarks: List<com.example.data.TestMark>) {
+    val scores = testMarks.map { if (it.maxScore > 0) (it.score / it.maxScore) * 100f else 0f }
+    val maxScoreVal = 100f
+    
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.onSurface
+    
+    Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        if (scores.isEmpty()) return@Canvas
+        
+        val width = size.width
+        val height = size.height
+        val stepX = if (scores.size > 1) width / (scores.size - 1) else width
+        
+        // Draw axis lines
+        drawLine(color = surfaceColor.copy(alpha = 0.2f), start = androidx.compose.ui.geometry.Offset(0f, height), end = androidx.compose.ui.geometry.Offset(width, height), strokeWidth = 2f)
+        
+        val path = androidx.compose.ui.graphics.Path()
+        val points = mutableListOf<androidx.compose.ui.geometry.Offset>()
+        
+        scores.forEachIndexed { index, score ->
+            val x = index * stepX
+            val y = height - (score / maxScoreVal) * height
+            points.add(androidx.compose.ui.geometry.Offset(x, y))
+            if (index == 0) {
+                path.moveTo(x, y)
+            } else {
+                path.lineTo(x, y)
+            }
+        }
+        
+        drawPath(
+            path = path,
+            color = primaryColor,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        )
+        
+        points.forEach { point ->
+            drawCircle(
+                color = primaryColor,
+                radius = 12f,
+                center = point
+            )
+            drawCircle(
+                color = androidx.compose.ui.graphics.Color.White,
+                radius = 6f,
+                center = point
+            )
         }
     }
 }

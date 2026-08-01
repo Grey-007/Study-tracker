@@ -20,6 +20,7 @@ enum class AppState { LOADING, NEEDS_SETUP, COMPLETE }
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyllabusViewModel(
     private val repository: TopicRepository,
+    private val testMarkRepository: com.example.data.TestMarkRepository,
     private val userPreferences: com.example.data.UserPreferencesRepository
 ) : ViewModel() {
 
@@ -51,6 +52,33 @@ class SyllabusViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    val testMarks: StateFlow<List<com.example.data.TestMark>> = _currentExam.flatMapLatest { exam ->
+        if (exam == null) {
+            flowOf(emptyList())
+        } else {
+            testMarkRepository.getTestMarksByExam(exam)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun addTestMark(testName: String, score: Float, maxScore: Float) {
+        val exam = _currentExam.value ?: return
+        viewModelScope.launch {
+            testMarkRepository.insertTestMark(
+                com.example.data.TestMark(
+                    exam = exam,
+                    testName = testName,
+                    dateMillis = System.currentTimeMillis(),
+                    score = score,
+                    maxScore = maxScore
+                )
+            )
+        }
+    }
 
     init {
         viewModelScope.launch {
