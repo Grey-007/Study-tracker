@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat
 import androidx.room.Room
 import com.example.data.AppDatabase
 import com.example.data.TopicRepository
+import androidx.lifecycle.ViewModelProvider
+import com.example.data.UserPreferencesRepository
 import com.example.ui.SyllabusViewModel
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.SyllabusApp
@@ -49,7 +51,13 @@ class MainActivity : ComponentActivity() {
             AppDatabase::class.java, "syllabus-database"
         ).build()
         val repository = TopicRepository(database.topicDao())
-        val viewModel = SyllabusViewModel(repository)
+        val userPrefs = UserPreferencesRepository(applicationContext)
+        val factory = object : ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return SyllabusViewModel(repository, userPrefs) as T
+            }
+        }
+        val viewModel = ViewModelProvider(this, factory)[SyllabusViewModel::class.java]
 
         setContent {
             MyApplicationTheme {

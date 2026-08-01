@@ -39,31 +39,39 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyllabusApp(viewModel: SyllabusViewModel) {
-    val isSetupComplete by viewModel.isSetupComplete.collectAsStateWithLifecycle()
+    val setupState by viewModel.setupState.collectAsStateWithLifecycle()
 
     AnimatedContent(
-        targetState = isSetupComplete,
+        targetState = setupState,
         transitionSpec = {
             fadeIn(animationSpec = tween(800)) togetherWith fadeOut(animationSpec = tween(800))
         },
         label = "setup_transition"
-    ) { setupComplete ->
-        if (!setupComplete) {
-            SetupScreen(
-                onComplete = { exam, subjects ->
-                    viewModel.completeSetup(exam, subjects)
+    ) { state ->
+        when (state) {
+            AppState.LOADING -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-            )
-        } else {
-            DashboardScreen(viewModel)
+            }
+            AppState.NEEDS_SETUP -> {
+                SetupScreen(
+                    onComplete = { exam, subjects ->
+                        viewModel.completeSetup(exam, subjects)
+                    }
+                )
+            }
+            AppState.COMPLETE -> {
+                DashboardScreen(viewModel)
+            }
         }
     }
 }
 
 @Composable
-fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
+fun SetupScreen(onComplete: (Set<String>, Set<String>) -> Unit) {
     val exams = listOf("JEE", "NEET", "CUET")
-    val getSubjects = { exam: String ->
+    val getSubjectsForExam = { exam: String ->
         when (exam) {
             "JEE" -> listOf("Physics", "Chemistry", "Maths")
             "NEET" -> listOf("Physics", "Chemistry", "Biology")
@@ -72,11 +80,12 @@ fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
         }
     }
 
-    var selectedExam by remember { mutableStateOf(exams.first()) }
-    var selectedSubjects by remember { mutableStateOf(getSubjects(selectedExam)) }
+    var selectedExams by remember { mutableStateOf(setOf(exams.first())) }
+    var selectedSubjects by remember { mutableStateOf(getSubjectsForExam(exams.first()).toSet()) }
 
-    LaunchedEffect(selectedExam) {
-        selectedSubjects = getSubjects(selectedExam)
+    LaunchedEffect(selectedExams) {
+        val newSubjects = selectedExams.flatMap { getSubjectsForExam(it) }.toSet()
+        selectedSubjects = selectedSubjects.intersect(newSubjects) + newSubjects
     }
 
     Scaffold { paddingValues ->
@@ -95,16 +104,22 @@ fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
             )
             Spacer(modifier = Modifier.height(32.dp))
             
-            Text("Select your target exam:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+            Text("Select your target exams:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 exams.forEach { exam ->
-                    val isSelected = selectedExam == exam
+                    val isSelected = selectedExams.contains(exam)
                     Surface(
-                        onClick = { selectedExam = exam },
+                        onClick = { 
+                            selectedExams = if (isSelected && selectedExams.size > 1) {
+                                selectedExams - exam
+                            } else {
+                                selectedExams + exam
+                            }
+                        },
                         shape = CircleShape,
                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary) else null,
@@ -125,8 +140,12 @@ fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
             Text("Select your subjects:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                getSubjects(selectedExam).forEach { subject ->
+            val availableSubjects = selectedExams.flatMap { getSubjectsForExam(it) }.toSet().toList()
+            LazyColumn(
+                modifier = Modifier.weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(availableSubjects) { subject ->
                     val isSelected = selectedSubjects.contains(subject)
                     Row(
                         modifier = Modifier
@@ -160,9 +179,9 @@ fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
             
             Spacer(modifier = Modifier.height(48.dp))
             Button(
-                onClick = { onComplete(selectedExam, selectedSubjects) },
+                onClick = { onComplete(selectedExams, selectedSubjects) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = selectedSubjects.isNotEmpty()
+                enabled = selectedExams.isNotEmpty() && selectedSubjects.isNotEmpty()
             ) {
                 Text("Start Tracking")
             }
@@ -175,6 +194,7 @@ fun SetupScreen(onComplete: (String, List<String>) -> Unit) {
 fun DashboardScreen(viewModel: SyllabusViewModel) {
     val currentExam by viewModel.currentExam.collectAsStateWithLifecycle()
     val topics by viewModel.topics.collectAsStateWithLifecycle()
+    val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -209,6 +229,35 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (selectedExams.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    selectedExams.forEach { exam ->
+                        val isSelected = currentExam == exam
+                        Surface(
+                            onClick = { viewModel.selectExam(exam) },
+                            shape = CircleShape,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                            border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary) else null,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                                Text(
+                                    text = exam,
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             if (topics.isNotEmpty()) {

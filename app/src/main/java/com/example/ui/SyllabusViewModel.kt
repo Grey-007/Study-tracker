@@ -15,19 +15,28 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalCoroutinesApi::class)
-class SyllabusViewModel(private val repository: TopicRepository) : ViewModel() {
+enum class AppState { LOADING, NEEDS_SETUP, COMPLETE }
 
-    private val _isSetupComplete = MutableStateFlow(false)
-    val isSetupComplete: StateFlow<Boolean> = _isSetupComplete
+@OptIn(ExperimentalCoroutinesApi::class)
+class SyllabusViewModel(
+    private val repository: TopicRepository,
+    private val userPreferences: com.example.data.UserPreferencesRepository
+) : ViewModel() {
+
+    val setupState: StateFlow<AppState> = userPreferences.isSetupComplete
+        .map { if (it) AppState.COMPLETE else AppState.NEEDS_SETUP }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppState.LOADING)
+
+    val selectedExams: StateFlow<Set<String>> = userPreferences.selectedExams
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val selectedSubjects: StateFlow<Set<String>> = userPreferences.selectedSubjects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val _currentExam = MutableStateFlow<String?>(null)
     val currentExam: StateFlow<String?> = _currentExam
 
-    private val _selectedSubjects = MutableStateFlow<List<String>>(emptyList())
-    val selectedSubjects: StateFlow<List<String>> = _selectedSubjects
-
-    val topics: StateFlow<List<Topic>> = combine(_currentExam, _selectedSubjects) { exam, subjects ->
+    val topics: StateFlow<List<Topic>> = combine(_currentExam, selectedSubjects) { exam, subjects ->
         exam to subjects
     }.flatMapLatest { (exam, subjects) ->
         if (exam == null) {
@@ -49,12 +58,24 @@ class SyllabusViewModel(private val repository: TopicRepository) : ViewModel() {
                 repository.insertTopics(getInitialTopics())
             }
         }
+        viewModelScope.launch {
+            selectedExams.collect { exams ->
+                if (_currentExam.value == null && exams.isNotEmpty()) {
+                    _currentExam.value = exams.first()
+                }
+            }
+        }
     }
 
-    fun completeSetup(exam: String, subjects: List<String>) {
-        _currentExam.value = exam
-        _selectedSubjects.value = subjects
-        _isSetupComplete.value = true
+    fun completeSetup(exams: Set<String>, subjects: Set<String>) {
+        viewModelScope.launch {
+            userPreferences.saveSelectedExams(exams)
+            userPreferences.saveSelectedSubjects(subjects)
+            userPreferences.saveSetupComplete(true)
+            if (exams.isNotEmpty()) {
+                _currentExam.value = exams.first()
+            }
+        }
     }
 
     fun selectExam(exam: String) {
