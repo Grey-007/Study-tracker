@@ -143,7 +143,9 @@ class SyllabusViewModel(
 
     fun toggleTopicCompletion(topic: Topic) {
         viewModelScope.launch {
-            repository.updateTopic(topic.copy(isCompleted = !topic.isCompleted))
+            val newIsCompleted = !topic.isCompleted
+            val timestamp = if (newIsCompleted) System.currentTimeMillis() else null
+            repository.updateTopic(topic.copy(isCompleted = newIsCompleted, completedDateMillis = timestamp))
         }
     }
 

@@ -1,4 +1,11 @@
 package com.example.ui
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.text.rememberTextMeasurer
+
+import java.util.Calendar
+import androidx.compose.ui.text.drawText
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -599,6 +606,7 @@ fun SubjectCard(
 @Composable
 fun AnalysisScreen(viewModel: SyllabusViewModel) {
     val testMarks by viewModel.testMarks.collectAsStateWithLifecycle()
+    val topics by viewModel.topics.collectAsStateWithLifecycle()
     var showAddTestDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -606,44 +614,57 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
             Text("Performance Analysis", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             
-            if (testMarks.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("No test marks recorded yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Add your offline test marks to see trends.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item {
+                    if (testMarks.isNotEmpty()) {
+                        val averageScore = testMarks.map { (it.score / it.maxScore) * 100 }.average().toFloat()
+                        val highestScore = testMarks.maxOf { (it.score / it.maxScore) * 100 }
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            StatCard("Average", String.format("%.1f%%", averageScore), Modifier.weight(1f))
+                            StatCard("Highest", String.format("%.1f%%", highestScore), Modifier.weight(1f))
+                            StatCard("Tests", testMarks.size.toString(), Modifier.weight(1f))
+                        }
                     }
                 }
-            } else {
-                val averageScore = testMarks.map { (it.score / it.maxScore) * 100 }.average().toFloat()
-                val highestScore = testMarks.maxOf { (it.score / it.maxScore) * 100 }
                 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    StatCard("Average", String.format("%.1f%%", averageScore), Modifier.weight(1f))
-                    StatCard("Highest", String.format("%.1f%%", highestScore), Modifier.weight(1f))
-                    StatCard("Tests", testMarks.size.toString(), Modifier.weight(1f))
+                item {
+                    Text("Productivity Heatmap", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth().height(250.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Peak Study Hours (Completed Topics)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ProductivityHeatmap(topics = topics, modifier = Modifier.fillMaxSize())
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
                 
-                Card(
-                    modifier = Modifier.fillMaxWidth().height(250.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                if (testMarks.isNotEmpty()) {
+                    item {
                         Text("Test Scores Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TestScoresChart(testMarks)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                TestScoresChart(testMarks)
+                            }
+                        }
                     }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text("Recent Tests", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    
+                    item {
+                        Text("Recent Tests", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    
                     items(testMarks.reversed()) { test ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -666,9 +687,20 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
                             }
                         }
                     }
+                } else {
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("No test marks recorded yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
+                }
+                
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
         }
@@ -743,7 +775,6 @@ fun AnalysisScreen(viewModel: SyllabusViewModel) {
         )
     }
 }
-
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
@@ -1057,6 +1088,73 @@ fun ExamCountdownCard(exam: String?) {
                     text = "Days Left",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+@Composable
+fun ProductivityHeatmap(topics: List<Topic>, modifier: Modifier = Modifier) {
+    val completedTopics = topics.filter { it.isCompleted && it.completedDateMillis != null }
+    
+    // 7 days (Sun-Sat), 6 time blocks (0-3, 4-7, 8-11, 12-15, 16-19, 20-23)
+    val heatMatrix = Array(7) { IntArray(6) }
+    var maxCount = 0
+    
+    for (topic in completedTopics) {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = topic.completedDateMillis!!
+        }
+        val day = calendar.get(Calendar.DAY_OF_WEEK) - 1 // 0 (Sun) to 6 (Sat)
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val timeBlock = hour / 4
+        heatMatrix[day][timeBlock]++
+        if (heatMatrix[day][timeBlock] > maxCount) {
+            maxCount = heatMatrix[day][timeBlock]
+        }
+    }
+    
+    val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    val timeLabels = listOf("12a", "4a", "8a", "12p", "4p", "8p")
+    
+    val baseColor = MaterialTheme.colorScheme.primary
+    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
+    
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    
+    Canvas(modifier = modifier) {
+        val cellWidth = (size.width - 40.dp.toPx()) / 6
+        val cellHeight = (size.height - 20.dp.toPx()) / 7
+        val padding = 4.dp.toPx()
+        
+        // Draw X-axis labels (Time Blocks)
+        for (i in 0..5) {
+            val textLayoutResult = textMeasurer.measure(text = timeLabels[i], style = labelStyle)
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(40.dp.toPx() + i * cellWidth + (cellWidth - textLayoutResult.size.width) / 2, 0f)
+            )
+        }
+        
+        // Draw Y-axis labels and Heatmap cells
+        for (day in 0..6) {
+            val textLayoutResult = textMeasurer.measure(text = days[day], style = labelStyle)
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset((40.dp.toPx() - textLayoutResult.size.width) / 2, 20.dp.toPx() + day * cellHeight + (cellHeight - textLayoutResult.size.height) / 2)
+            )
+            
+            for (block in 0..5) {
+                val count = heatMatrix[day][block]
+                val alpha = if (maxCount == 0) 0f else 0.2f + 0.8f * (count.toFloat() / maxCount)
+                val color = if (count == 0) emptyColor else baseColor.copy(alpha = alpha)
+                
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(40.dp.toPx() + block * cellWidth + padding, 20.dp.toPx() + day * cellHeight + padding),
+                    size = Size(cellWidth - 2 * padding, cellHeight - 2 * padding),
+                    cornerRadius = CornerRadius(4.dp.toPx())
                 )
             }
         }

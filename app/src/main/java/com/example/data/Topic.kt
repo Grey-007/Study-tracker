@@ -10,5 +10,6 @@ data class Topic(
     val subject: String,
     val name: String,
     val isCompleted: Boolean = false,
-    val studyLinks: String? = null
+    val studyLinks: String? = null,
+    val completedDateMillis: Long? = null
 )
