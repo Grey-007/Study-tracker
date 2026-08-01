@@ -1,0 +1,6 @@
+{
+  "name": "Syllabus Tracker",
+  "description": "A syllabus tracker app for JEE, NEET, and CUET exams with planner and progress charts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
