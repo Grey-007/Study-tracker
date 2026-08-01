@@ -1,6 +1,8 @@
 package com.example.ui
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.border
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.text.rememberTextMeasurer
 
@@ -17,6 +19,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,13 +35,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Timer
@@ -218,8 +228,22 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
     val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
 
     var currentTab by remember { mutableStateOf(0) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showProfile by remember { mutableStateOf(false) }
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
 
-    Scaffold(
+
+
+    if (showProfile) {
+        ProfileScreen(viewModel = viewModel, onBack = { showProfile = false })
+        return
+    }
+    
+    if (showSettings) {
+        SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
+        return
+    }
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = { 
@@ -228,16 +252,22 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
+                                .clickable { showProfile = true }
                                 .background(MaterialTheme.colorScheme.primary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("S", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            if (userName?.isNotBlank() == true) Text(userName!!.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) else if (userName?.isNotBlank() == true) Text(userName!!.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) else Text("S", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text("Study Dashboard", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleMedium)
                             Text("$currentExam Prep", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -353,7 +383,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                                             onTopicToggle = { viewModel.toggleTopicCompletion(it) },
                                             onDeleteTopic = { viewModel.deleteTopic(it) },
                                             onUpdateTopicLinks = { topic, links -> viewModel.updateTopicLinks(topic, links) },
-                                            onAddTopic = { name -> viewModel.addTopic(subject, name) }
+                                            onAddTopic = { name -> viewModel.addTopic(currentExam ?: "", subject, name) }
                                         )
                                     }
                                 }
@@ -448,7 +478,8 @@ fun OverallProgressCard(progress: Float) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                                ,
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.tertiary
             )
@@ -922,8 +953,8 @@ fun TopicItem(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLinksDialog = false }) {
-                    Text("Cancel")
+                androidx.compose.material3.TextButton(onClick = { showLinksDialog = false }) {
+                    androidx.compose.material3.Text("Cancel")
                 }
             }
         )
@@ -933,34 +964,83 @@ fun TopicItem(
 @Composable
 fun TimerScreen(viewModel: SyllabusViewModel) {
     val timeInSeconds by viewModel.timerTime.collectAsStateWithLifecycle()
+    val totalTime by viewModel.timerTotalTime.collectAsStateWithLifecycle()
     val isRunning by viewModel.isTimerRunning.collectAsStateWithLifecycle()
 
     val minutes = timeInSeconds / 60
     val seconds = timeInSeconds % 60
     val timeString = String.format("%02d:%02d", minutes, seconds)
     
+    val progress = if (totalTime > 0) timeInSeconds.toFloat() / totalTime else 0f
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(timeInSeconds) {
+        if (timeInSeconds == 0 && totalTime > 0) {
+            try {
+                val notification = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+                val r = android.media.RingtoneManager.getRingtone(context, notification)
+                r.play()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            
+            // Notification
+            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val channel = android.app.NotificationChannel(
+                    "timer_channel",
+                    "Timer Notifications",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                )
+                notificationManager.createNotificationChannel(channel)
+            }
+            
+            val builder = androidx.core.app.NotificationCompat.Builder(context, "timer_channel")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Time's Up!")
+                .setContentText("Your study session is complete. Take a break!")
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                
+            notificationManager.notify(1001, builder.build())
+        }
+    }
+    
     var showCustomTimeDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Study Timer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(48.dp))
             
             Box(
                 modifier = Modifier
-                    .size(240.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .size(280.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = timeString,
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 56.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                androidx.compose.material3.CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 12.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                 )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = timeString,
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 64.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isRunning) "Focus Mode" else if (timeInSeconds == 0) "Time's Up!" else "Ready",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(48.dp))
@@ -971,43 +1051,45 @@ fun TimerScreen(viewModel: SyllabusViewModel) {
                         onClick = { viewModel.pauseTimer() },
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ) {
-                        Icon(androidx.compose.material.icons.Icons.Default.Pause, contentDescription = "Pause")
+                        Icon(Icons.Default.Pause, contentDescription = "Pause")
                     }
                 } else {
                     FloatingActionButton(
-                        onClick = { viewModel.startTimer() },
+                        onClick = { 
+                            if (timeInSeconds == 0) viewModel.resetTimer(25)
+                            viewModel.startTimer() 
+                        },
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {
-                        Icon(androidx.compose.material.icons.Icons.Default.PlayArrow, contentDescription = "Start")
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Play")
                     }
                 }
                 
                 FloatingActionButton(
-                    onClick = { viewModel.resetTimer() },
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+                    onClick = { viewModel.resetTimer(25) },
+                    containerColor = MaterialTheme.colorScheme.surface
                 ) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Stop, contentDescription = "Stop")
+                    Icon(Icons.Default.Refresh, contentDescription = "Reset")
                 }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            TextButton(onClick = { showCustomTimeDialog = true }) {
+            androidx.compose.material3.TextButton(onClick = { showCustomTimeDialog = true }) {
                 Text("Set Custom Time")
             }
         }
     }
-    
+
     if (showCustomTimeDialog) {
-        var minutesStr by remember { mutableStateOf("25") }
-        AlertDialog(
+        var minutesStr by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { showCustomTimeDialog = false },
-            title = { Text("Set Timer Duration") },
+            title = { Text("Set Timer (Minutes)") },
             text = {
-                OutlinedTextField(
+                androidx.compose.material3.OutlinedTextField(
                     value = minutesStr,
                     onValueChange = { minutesStr = it },
-                    label = { Text("Minutes") },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     singleLine = true
                 )
@@ -1026,7 +1108,7 @@ fun TimerScreen(viewModel: SyllabusViewModel) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCustomTimeDialog = false }) {
+                androidx.compose.material3.TextButton(onClick = { showCustomTimeDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -1155,6 +1237,153 @@ fun ProductivityHeatmap(topics: List<Topic>, modifier: Modifier = Modifier) {
                     topLeft = Offset(40.dp.toPx() + block * cellWidth + padding, 20.dp.toPx() + day * cellHeight + padding),
                     size = Size(cellWidth - 2 * padding, cellHeight - 2 * padding),
                     cornerRadius = CornerRadius(4.dp.toPx())
+                )
+            }
+        }
+    }
+}
+@androidx.compose.material3.ExperimentalMaterial3Api
+@Composable
+fun ProfileScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
+    val userAim by viewModel.userAim.collectAsStateWithLifecycle()
+    val profilePicUri by viewModel.profilePicUri.collectAsStateWithLifecycle()
+    
+    var nameInput by remember { mutableStateOf(userName ?: "") }
+    var aimInput by remember { mutableStateOf(userAim ?: "") }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profile") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                if (userName?.isNotBlank() == true) {
+                    Text(userName!!.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.displayMedium)
+                } else {
+                    Text("S", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.displayMedium)
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedTextField(
+                value = nameInput,
+                onValueChange = { nameInput = it },
+                label = { Text("Student Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = aimInput,
+                onValueChange = { aimInput = it },
+                label = { Text("Your Aim / Target Score") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { 
+                    viewModel.updateUserProfile(nameInput, null, aimInput)
+                    onBack()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save Profile")
+            }
+        }
+    }
+}
+
+
+@androidx.compose.material3.ExperimentalMaterial3Api
+@Composable
+fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
+    val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+    
+    val colors = listOf(
+        0xFF6200EE.toInt(), // Default Deep Purple
+        0xFF03DAC5.toInt(), // Teal
+        0xFFB00020.toInt(), // Red
+        0xFF3700B3.toInt(), // Dark Purple
+        0xFF018786.toInt(), // Dark Teal
+        0xFF4CAF50.toInt(), // Green
+        0xFFFF9800.toInt(), // Orange
+        0xFF2196F3.toInt()  // Blue
+    )
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Text("Theme Color", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                colors.forEach { colorInt ->
+                    val color = androidx.compose.ui.graphics.Color(colorInt)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .clickable { viewModel.updateThemeColor(colorInt) }
+                            .then(
+                                if (themeColor == colorInt) {
+                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Dark Mode", style = MaterialTheme.typography.titleMedium)
+                Switch(
+                    checked = isDarkMode ?: false, // Assuming system default if null, but let's toggle explicitly
+                    onCheckedChange = { viewModel.updateDarkMode(it) }
                 )
             }
         }

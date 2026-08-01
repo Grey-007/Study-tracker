@@ -2,6 +2,8 @@ package com.example
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -62,7 +64,13 @@ class MainActivity : ComponentActivity() {
         val viewModel = ViewModelProvider(this, factory)[SyllabusViewModel::class.java]
 
         setContent {
-            MyApplicationTheme {
+            val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
+            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            
+            MyApplicationTheme(
+                darkTheme = isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme(),
+                customPrimaryColor = themeColor
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
