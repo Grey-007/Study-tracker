@@ -1,4 +1,6 @@
 package com.example.ui
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.material.icons.filled.Settings
@@ -15,6 +17,11 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
@@ -112,7 +119,6 @@ fun SetupScreen(onComplete: (Set<String>, Set<String>) -> Unit) {
             else -> emptyList()
         }
     }
-
     var selectedExams by remember { mutableStateOf(setOf(exams.first())) }
     var selectedSubjects by remember { mutableStateOf(getSubjectsForExam(exams.first()).toSet()) }
 
@@ -121,107 +127,139 @@ fun SetupScreen(onComplete: (Set<String>, Set<String>) -> Unit) {
         selectedSubjects = selectedSubjects.intersect(newSubjects) + newSubjects
     }
 
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
     Scaffold { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(800)) + slideInVertically(animationSpec = tween(800), initialOffsetY = { 50 }),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "Welcome to Syllabus Tracker",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Text("Select your target exams:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center
             ) {
-                exams.forEach { exam ->
-                    val isSelected = selectedExams.contains(exam)
-                    Surface(
-                        onClick = { 
-                            selectedExams = if (isSelected && selectedExams.size > 1) {
-                                selectedExams - exam
-                            } else {
-                                selectedExams + exam
+                Text(
+                    text = "Welcome to Syllabus Tracker",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Text("Select your target exams:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    exams.forEach { exam ->
+                        val isSelected = selectedExams.contains(exam)
+                        
+                        val bgColor by animateColorAsState(targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, label = "bgColor")
+                        val textColor by animateColorAsState(targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, label = "textColor")
+                        
+                        Surface(
+                            onClick = { 
+                                selectedExams = if (isSelected && selectedExams.size > 1) {
+                                    selectedExams - exam
+                                } else {
+                                    selectedExams + exam
+                                }
+                            },
+                            shape = CircleShape,
+                            color = bgColor,
+                            border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary) else null,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 12.dp)) {
+                                Text(
+                                    text = exam,
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = textColor
+                                )
                             }
-                        },
-                        shape = CircleShape,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary) else null,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 12.dp)) {
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text("Select your subjects:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                val availableSubjects = selectedExams.flatMap { getSubjectsForExam(it) }.toSet().toList()
+                
+                LazyColumn(
+                    modifier = Modifier.weight(1f, fill = false).animateContentSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(availableSubjects, key = { it }) { subject ->
+                        val isSelected = selectedSubjects.contains(subject)
+                        
+                        val bgAlpha by animateFloatAsState(targetValue = if (isSelected) 0.1f else 0f, label = "bgAlpha")
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha))
+                                .clickable {
+                                    selectedSubjects = if (isSelected) {
+                                        selectedSubjects - subject
+                                    } else {
+                                        selectedSubjects + subject
+                                    }
+                                }
+                                .padding(16.dp)
+                                .animateItem(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AnimatedContent(targetState = isSelected, label = "icon") { state ->
+                                if (state) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Circle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = exam,
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                text = subject,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Select your subjects:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(modifier = Modifier.height(8.dp))
-            val availableSubjects = selectedExams.flatMap { getSubjectsForExam(it) }.toSet().toList()
-            LazyColumn(
-                modifier = Modifier.weight(1f, fill = false),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(availableSubjects) { subject ->
-                    val isSelected = selectedSubjects.contains(subject)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface)
-                            .clickable {
-                                selectedSubjects = if (isSelected) {
-                                    selectedSubjects - subject
-                                } else {
-                                    selectedSubjects + subject
-                                }
-                            }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                            contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = subject,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                
+                Spacer(modifier = Modifier.height(48.dp))
+                
+                Button(
+                    onClick = { onComplete(selectedExams, selectedSubjects) },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    enabled = selectedExams.isNotEmpty() && selectedSubjects.isNotEmpty()
+                ) {
+                    Text("Start Tracking")
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(48.dp))
-            Button(
-                onClick = { onComplete(selectedExams, selectedSubjects) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = selectedExams.isNotEmpty() && selectedSubjects.isNotEmpty()
-            ) {
-                Text("Start Tracking")
             }
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: SyllabusViewModel) {
@@ -370,7 +408,10 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
             AnimatedContent(
                 targetState = currentTab,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(500))
+                    val direction = if (targetState > initialState) 1 else -1
+                    (fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)) { width -> direction * width }).togetherWith(
+                        fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)) { width -> -direction * width }
+                    )
                 },
                 label = "tab_transition",
                 modifier = Modifier.weight(1f)
@@ -914,18 +955,31 @@ fun TopicItem(
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val bgAlpha by animateFloatAsState(if (topic.isCompleted) 0.2f else 0.3f, label = "bgAlpha")
+        val bgColor = if (topic.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+        
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (topic.isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+                .background(bgColor.copy(alpha = bgAlpha)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (topic.isCompleted) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                contentDescription = "Toggle completion",
-                tint = if (topic.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            AnimatedContent(targetState = topic.isCompleted, label = "toggleIcon") { completed ->
+                if (completed) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Toggle completion",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Circle,
+                        contentDescription = "Toggle completion",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1465,10 +1519,11 @@ fun OverviewScreen(
             
             val examsToShow = if (selectedFilter == null) selectedExams.toList() else listOf(selectedFilter!!)
             
-            items(examsToShow) { exam ->
+            items(examsToShow, key = { it }) { exam ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateItem()
                     .clickable { onExamClick(exam) },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

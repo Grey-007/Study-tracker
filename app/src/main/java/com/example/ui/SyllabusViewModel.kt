@@ -45,6 +45,16 @@ class SyllabusViewModel(
 
     private val _currentExam = MutableStateFlow<String?>(null)
     val currentExam: StateFlow<String?> = _currentExam
+    
+    init {
+        viewModelScope.launch {
+            selectedExams.collect { exams ->
+                if (_currentExam.value == null && exams.isNotEmpty()) {
+                    _currentExam.value = exams.first()
+                }
+            }
+        }
+    }
 
     private val _timerTime = MutableStateFlow(25 * 60)
     private val _timerTotalTime = MutableStateFlow(25 * 60)
