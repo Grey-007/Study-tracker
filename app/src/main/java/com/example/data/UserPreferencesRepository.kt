@@ -22,6 +22,8 @@ class UserPreferencesRepository(private val context: Context) {
     private val USER_AIM = stringPreferencesKey("user_aim")
     private val THEME_COLOR = androidx.datastore.preferences.core.intPreferencesKey("theme_color")
     private val DARK_MODE = booleanPreferencesKey("dark_mode")
+    private val STUDY_STREAK = androidx.datastore.preferences.core.intPreferencesKey("study_streak")
+    private val LAST_STUDY_DATE = androidx.datastore.preferences.core.longPreferencesKey("last_study_date")
 
     val isSetupComplete: Flow<Boolean> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[IS_SETUP_COMPLETE] ?: false
@@ -50,6 +52,14 @@ class UserPreferencesRepository(private val context: Context) {
     }
     val isDarkMode: Flow<Boolean?> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
         preferences[DARK_MODE]
+    }
+
+    val studyStreak: Flow<Int> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
+        preferences[STUDY_STREAK] ?: 0
+    }
+
+    val lastStudyDate: Flow<Long> = context.dataStore.data.catch { if (it is java.io.IOException) emit(androidx.datastore.preferences.core.emptyPreferences()) else throw it }.map { preferences ->
+        preferences[LAST_STUDY_DATE] ?: 0L
     }
 
     suspend fun saveSetupComplete(isComplete: Boolean) {
@@ -93,6 +103,18 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun saveDarkMode(isDark: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[DARK_MODE] = isDark
+        }
+    }
+
+    suspend fun updateStudyStreak(streak: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[STUDY_STREAK] = streak
+        }
+    }
+    
+    suspend fun updateLastStudyDate(date: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_STUDY_DATE] = date
         }
     }
 }

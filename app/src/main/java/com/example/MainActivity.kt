@@ -19,6 +19,7 @@ import androidx.room.Room
 import com.example.data.AppDatabase
 import com.example.data.TopicRepository
 import com.example.data.TestMarkRepository
+import com.example.data.FlashcardRepository
 import androidx.lifecycle.ViewModelProvider
 import com.example.data.UserPreferencesRepository
 import com.example.ui.SyllabusViewModel
@@ -52,13 +53,14 @@ class MainActivity : ComponentActivity() {
         val database = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java, "syllabus-database"
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(AppDatabase.MIGRATION_3_4).fallbackToDestructiveMigration().build()
         val repository = TopicRepository(database.topicDao())
         val testMarkRepository = TestMarkRepository(database.testMarkDao())
+        val flashcardRepository = FlashcardRepository(database.flashcardDao())
         val userPrefs = UserPreferencesRepository(applicationContext)
         val factory = object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return SyllabusViewModel(repository, testMarkRepository, userPrefs) as T
+                return SyllabusViewModel(repository, testMarkRepository, flashcardRepository, userPrefs) as T
             }
         }
         val viewModel = ViewModelProvider(this, factory)[SyllabusViewModel::class.java]

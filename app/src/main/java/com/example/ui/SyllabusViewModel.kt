@@ -6,6 +6,8 @@ import com.example.data.Topic
 import com.example.data.TopicRepository
 import com.example.data.TestMark
 import com.example.data.TestMarkRepository
+import com.example.data.Flashcard
+import com.example.data.FlashcardRepository
 import com.example.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,6 +17,7 @@ enum class AppState { LOADING, NEEDS_SETUP, COMPLETE }
 class SyllabusViewModel(
     private val repository: TopicRepository,
     private val testMarkRepository: TestMarkRepository,
+    private val flashcardRepository: FlashcardRepository,
     private val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -180,11 +183,6 @@ class SyllabusViewModel(
         }
     }
 
-    fun updateTopicLinks(topic: Topic, links: String) {
-        viewModelScope.launch {
-            repository.updateTopic(topic.copy(studyLinks = links))
-        }
-    }
     
     fun addTestMark(testName: String, score: Float, maxScore: Float) {
         val exam = _currentExam.value ?: return
@@ -205,5 +203,102 @@ class SyllabusViewModel(
         if (topics.isEmpty()) return 0f
         val completed = topics.count { it.isCompleted }
         return completed.toFloat() / topics.size
+    }
+
+    // Streak
+    val studyStreak: StateFlow<Int> = userPreferences.studyStreak
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        
+    fun incrementStreak() {
+        viewModelScope.launch {
+            val lastStudyDate = userPreferences.lastStudyDate.first()
+            val today = java.time.LocalDate.now().toEpochDay()
+            if (lastStudyDate != today) {
+                val currentStreak = userPreferences.studyStreak.first()
+                if (lastStudyDate == today - 1) {
+                    userPreferences.updateStudyStreak(currentStreak + 1)
+                } else {
+                    userPreferences.updateStudyStreak(1)
+                }
+                userPreferences.updateLastStudyDate(today)
+            }
+        }
+    }
+    
+    // Topics extensions
+    fun toggleDailyGoal(topic: Topic) {
+        viewModelScope.launch {
+            repository.updateTopic(topic.copy(isDailyGoal = !topic.isDailyGoal))
+        }
+    }
+    
+    fun updateTopicNotes(topic: Topic, notes: String) {
+        viewModelScope.launch {
+            repository.updateTopic(topic.copy(notes = notes))
+        }
+    }
+    
+    fun updateTopicLinks(topic: Topic, links: String) {
+        viewModelScope.launch {
+            repository.updateTopic(topic.copy(studyLinks = links))
+        }
+    }
+    
+    // Flashcards
+    @kotlinx.coroutines.ExperimentalCoroutinesApi
+    val flashcards: StateFlow<List<Flashcard>> = currentExam
+        .flatMapLatest { exam -> flashcardRepository.getFlashcardsForExam(exam ?: "") }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        
+    fun addFlashcard(flashcard: Flashcard) {
+        viewModelScope.launch {
+            flashcardRepository.insertFlashcard(flashcard)
+        }
+    }
+    
+    fun deleteFlashcard(flashcard: Flashcard) {
+        viewModelScope.launch {
+            flashcardRepository.deleteFlashcard(flashcard)
+        }
+    }
+    
+    fun updateFlashcardProgress(flashcard: Flashcard, quality: Int) {
+        viewModelScope.launch {
+            // SuperMemo-2 algorithm simplified
+            var repetitions = flashcard.repetitions
+            var interval = flashcard.intervalDays
+            var ease = flashcard.easeFactor
+            
+            if (quality >= 3) {
+                if (repetitions == 0) {
+                    interval = 1
+                } else if (repetitions == 1) {
+                    interval = 6
+                } else {
+                    interval = (interval * ease).toInt()
+                }
+                repetitions++
+            } else {
+                repetitions = 0
+                interval = 1
+            }
+            
+            ease += (0.1f - (5 - quality) * (0.08f + (5 - quality) * 0.02f))
+            if (ease < 1.3f) ease = 1.3f
+            
+            val nextDate = System.currentTimeMillis() + interval * 24L * 60L * 60L * 1000L
+            
+            flashcardRepository.updateFlashcard(
+                flashcard.copy(
+                    repetitions = repetitions,
+                    intervalDays = interval,
+                    easeFactor = ease,
+                    nextReviewDateMillis = nextDate
+                )
+            )
+            
+            // Whenever they review a flashcard, it counts as studying
+            incrementStreak()
+        }
     }
 }

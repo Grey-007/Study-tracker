@@ -30,6 +30,16 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 
+
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.ViewCarousel
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -79,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.Topic
+import com.example.data.Flashcard
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -347,50 +358,26 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
-                NavigationBarItem(
-                    selected = currentTab == 0,
-                    onClick = { currentTab = 0 },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Overview") },
-                    label = { Text("Overview") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary
-                    )
+                val tabs = listOf(
+                    "Overview" to Icons.Default.Home,
+                    "Syllabus" to Icons.Default.List,
+                    "Cards" to androidx.compose.material.icons.Icons.Default.ViewCarousel,
+                    "Vault" to androidx.compose.material.icons.Icons.Default.Folder,
+                    "Timer" to Icons.Default.Timer
                 )
-                NavigationBarItem(
-                    selected = currentTab == 1,
-                    onClick = { currentTab = 1 },
-                    icon = { Icon(Icons.Default.List, contentDescription = "Syllabus") },
-                    label = { Text("Syllabus") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary
+                tabs.forEachIndexed { index, pair ->
+                    NavigationBarItem(
+                        selected = currentTab == index,
+                        onClick = { currentTab = index },
+                        icon = { Icon(pair.second, contentDescription = pair.first) },
+                        label = { Text(pair.first, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 2,
-                    onClick = { currentTab = 2 },
-                    icon = { Icon(Icons.Default.Insights, contentDescription = "Analysis") },
-                    label = { Text("Analysis") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 3,
-                    onClick = { currentTab = 3 },
-                    icon = { Icon(Icons.Default.Timer, contentDescription = "Timer") },
-                    label = { Text("Timer") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primary
-                    )
-                )
+                }
             }
         }
     ) { paddingValues ->
@@ -441,18 +428,12 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                 label = "tab_transition",
                 modifier = Modifier.weight(1f)
             ) { tab ->
-                if (tab == 0) {
-                    OverviewScreen(
-                        selectedExams = selectedExams,
-                        selectedSubjects = selectedSubjects,
-                        allTopics = allTopics,
-                        onExamClick = { exam -> 
-                            viewModel.selectExam(exam)
-                            currentTab = 1
-                        }
-                    )
-                } else if (tab == 1) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                when (tab) {
+                    0 -> OverviewScreen(viewModel, onExamClick = { exam ->
+                        viewModel.selectExam(exam)
+                        currentTab = 1
+                    })
+                    1 -> Column(modifier = Modifier.fillMaxSize()) {
                         ExamCountdownCard(currentExam, onClick = { showCountdown = true })
                         val overallCompletion = viewModel.getCompletionPercentage(topics)
                         OverallProgressCard(progress = overallCompletion)
@@ -475,16 +456,17 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                                         onTopicToggle = { viewModel.toggleTopicCompletion(it) },
                                         onDeleteTopic = { viewModel.deleteTopic(it) },
                                         onUpdateTopicLinks = { topic, links -> viewModel.updateTopicLinks(topic, links) },
+                                        onUpdateTopicNotes = { topic, notes -> viewModel.updateTopicNotes(topic, notes) },
+                                        onToggleDailyGoal = { topic -> viewModel.toggleDailyGoal(topic) },
                                         onAddTopic = { name -> viewModel.addTopic(currentExam ?: "", subject, name) }
                                     )
                                 }
                             }
                         }
                     }
-                } else if (tab == 2) {
-                    AnalysisScreen(viewModel)
-                } else {
-                    TimerScreen(viewModel)
+                    2 -> FlashcardsScreen(viewModel)
+                    3 -> VaultScreen(viewModel)
+                    4 -> TimerScreen(viewModel)
                 }
             }
         }
@@ -579,384 +561,124 @@ fun SubjectCard(
     subject: String,
     topics: List<Topic>,
     onTopicToggle: (Topic) -> Unit,
-    onDeleteTopic: (Topic) -> Unit,
-    onUpdateTopicLinks: (Topic, String) -> Unit,
-    onAddTopic: (String) -> Unit
+    onDeleteTopic: ((Topic) -> Unit)? = null,
+    onUpdateTopicLinks: ((Topic, String) -> Unit)? = null,
+    onUpdateTopicNotes: ((Topic, String) -> Unit)? = null,
+    onToggleDailyGoal: ((Topic) -> Unit)? = null,
+    onAddTopic: ((String) -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var showAddTopicDialog by remember { mutableStateOf(false) }
     val completedCount = topics.count { it.isCompleted }
-    val progress = if (topics.isEmpty()) 0f else completedCount.toFloat() / topics.size
+    val totalCount = topics.size
+    val progress = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(),
-        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = !expanded }
                     .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp)) {
-                    val trackColor = MaterialTheme.colorScheme.tertiary
-                    val progressColor = MaterialTheme.colorScheme.primary
-                    val animatedProgress by animateFloatAsState(targetValue = progress, label = "progress")
-                    Canvas(modifier = Modifier.size(48.dp)) {
-                        drawArc(
-                            color = trackColor,
-                            startAngle = 0f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                        drawArc(
-                            color = progressColor,
-                            startAngle = -90f,
-                            sweepAngle = animatedProgress * 360f,
-                            useCenter = false,
-                            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                    }
-                    Text(
-                        text = "${(animatedProgress * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = subject,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "$completedCount / ${topics.size} Topics Completed",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(6.dp)
+                                .clip(CircleShape),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer,
+                            strokeCap = StrokeCap.Round
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "${(progress * 100).roundToInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
                 Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Expand",
+                    imageVector = if (expanded) androidx.compose.material.icons.Icons.Default.ExpandLess else androidx.compose.material.icons.Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    topics.forEach { topic ->
+            
+            if (expanded) {
+                Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    topics.forEachIndexed { index, topic ->
                         TopicItem(
                             topic = topic,
-                            onTopicToggle = onTopicToggle,
-                            onDeleteTopic = onDeleteTopic,
-                            onUpdateTopicLinks = onUpdateTopicLinks
+                            onToggle = { onTopicToggle(topic) },
+                            onDelete = if (onDeleteTopic != null) { { onDeleteTopic(topic) } } else null,
+                            onUpdateLinks = onUpdateTopicLinks,
+                            onUpdateNotes = onUpdateTopicNotes,
+                            onToggleDailyGoal = onToggleDailyGoal
                         )
-                    }
-                    
-                    TextButton(
-                        onClick = { showAddTopicDialog = true },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add Chapter")
-                    }
-                }
-            }
-        }
-    }
-
-    if (showAddTopicDialog) {
-        var newTopicName by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddTopicDialog = false },
-            title = { Text("Add Chapter to $subject") },
-            text = {
-                OutlinedTextField(
-                    value = newTopicName,
-                    onValueChange = { newTopicName = it },
-                    label = { Text("Chapter Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newTopicName.isNotBlank()) {
-                            onAddTopic(newTopicName)
-                            showAddTopicDialog = false
+                        if (index < topics.size - 1) {
+                            Divider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
                         }
-                    },
-                    enabled = newTopicName.isNotBlank()
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddTopicDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun AnalysisScreen(viewModel: SyllabusViewModel) {
-    val testMarks by viewModel.testMarks.collectAsStateWithLifecycle()
-    val topics by viewModel.topics.collectAsStateWithLifecycle()
-    var showAddTestDialog by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Text("Performance Analysis", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
-                    if (testMarks.isNotEmpty()) {
-                        val averageScore = testMarks.map { (it.score / it.maxScore) * 100 }.average().toFloat()
-                        val highestScore = testMarks.maxOf { (it.score / it.maxScore) * 100 }
+                    }
+                    if (onAddTopic != null) {
+                        var showAddDialog by remember { mutableStateOf(false) }
                         
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            StatCard("Average", String.format("%.1f%%", averageScore), Modifier.weight(1f))
-                            StatCard("Highest", String.format("%.1f%%", highestScore), Modifier.weight(1f))
-                            StatCard("Tests", testMarks.size.toString(), Modifier.weight(1f))
-                        }
-                    }
-                }
-                
-                item {
-                    Text("Productivity Heatmap", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth().height(250.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Peak Study Hours (Completed Topics)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ProductivityHeatmap(topics = topics, modifier = Modifier.fillMaxSize())
-                        }
-                    }
-                }
-                
-                if (testMarks.isNotEmpty()) {
-                    item {
-                        Text("Test Scores Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth().height(250.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        TextButton(
+                            onClick = { showAddDialog = true },
+                            modifier = Modifier.fillMaxWidth().padding(8.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                TestScoresChart(testMarks)
-                            }
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add Topic")
                         }
-                    }
-                    
-                    item {
-                        Text("Recent Tests", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    
-                    items(testMarks.reversed()) { test ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        ) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Column {
-                                    Text(test.testName, fontWeight = FontWeight.SemiBold)
-                                    val date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(test.dateMillis))
-                                    Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        
+                        if (showAddDialog) {
+                            var newTopicName by remember { mutableStateOf("") }
+                            AlertDialog(
+                                onDismissRequest = { showAddDialog = false },
+                                title = { Text("Add Topic to $subject") },
+                                text = {
+                                    OutlinedTextField(
+                                        value = newTopicName,
+                                        onValueChange = { newTopicName = it },
+                                        label = { Text("Topic Name") },
+                                        singleLine = true
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        if (newTopicName.isNotBlank()) {
+                                            onAddTopic(newTopicName)
+                                            showAddDialog = false
+                                        }
+                                    }) { Text("Add") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
                                 }
-                                val percentage = (test.score / test.maxScore) * 100
-                                val color = if (percentage >= 80) androidx.compose.ui.graphics.Color(0xFF4CAF50) else if (percentage >= 50) androidx.compose.ui.graphics.Color(0xFFFFC107) else MaterialTheme.colorScheme.error
-                                Text(
-                                    text = String.format("%.1f%%", percentage),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = color
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("No test marks recorded yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                            )
                         }
                     }
                 }
-                
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
-                }
             }
-        }
-
-        FloatingActionButton(
-            onClick = { showAddTestDialog = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
-            containerColor = MaterialTheme.colorScheme.primary
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Test Mark")
-        }
-    }
-
-    if (showAddTestDialog) {
-        var testName by remember { mutableStateOf("") }
-        var scoreStr by remember { mutableStateOf("") }
-        var maxScoreStr by remember { mutableStateOf("") }
-        
-        AlertDialog(
-            onDismissRequest = { showAddTestDialog = false },
-            title = { Text("Add Test Score") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = testName,
-                        onValueChange = { testName = it },
-                        label = { Text("Test Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = scoreStr,
-                            onValueChange = { scoreStr = it },
-                            label = { Text("Your Score") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = maxScoreStr,
-                            onValueChange = { maxScoreStr = it },
-                            label = { Text("Max Score") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val score = scoreStr.toFloatOrNull()
-                        val maxScore = maxScoreStr.toFloatOrNull()
-                        if (testName.isNotBlank() && score != null && maxScore != null && maxScore > 0 && score <= maxScore) {
-                            viewModel.addTestMark(testName, score, maxScore)
-                            showAddTestDialog = false
-                        }
-                    },
-                    enabled = testName.isNotBlank() && scoreStr.isNotBlank() && maxScoreStr.isNotBlank()
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddTestDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-}
-@Composable
-fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
-        }
-    }
-}
-
-
-@Composable
-fun TestScoresChart(testMarks: List<com.example.data.TestMark>) {
-    val scores = testMarks.map { if (it.maxScore > 0) (it.score / it.maxScore) * 100f else 0f }
-    val maxScoreVal = 100f
-    
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.onSurface
-    
-    Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (scores.isEmpty()) return@Canvas
-        
-        val width = size.width
-        val height = size.height
-        val stepX = if (scores.size > 1) width / (scores.size - 1) else width
-        
-        // Draw axis lines
-        drawLine(color = surfaceColor.copy(alpha = 0.2f), start = androidx.compose.ui.geometry.Offset(0f, height), end = androidx.compose.ui.geometry.Offset(width, height), strokeWidth = 2f)
-        
-        val path = androidx.compose.ui.graphics.Path()
-        val points = mutableListOf<androidx.compose.ui.geometry.Offset>()
-        
-        scores.forEachIndexed { index, score ->
-            val x = index * stepX
-            val y = height - (score / maxScoreVal) * height
-            points.add(androidx.compose.ui.geometry.Offset(x, y))
-            if (index == 0) {
-                path.moveTo(x, y)
-            } else {
-                path.lineTo(x, y)
-            }
-        }
-        
-        drawPath(
-            path = path,
-            color = primaryColor,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        )
-        
-        points.forEach { point ->
-            drawCircle(
-                color = primaryColor,
-                radius = 12f,
-                center = point
-            )
-            drawCircle(
-                color = androidx.compose.ui.graphics.Color.White,
-                radius = 6f,
-                center = point
-            )
         }
     }
 }
@@ -964,30 +686,25 @@ fun TestScoresChart(testMarks: List<com.example.data.TestMark>) {
 @Composable
 fun TopicItem(
     topic: Topic,
-    onTopicToggle: (Topic) -> Unit,
-    onDeleteTopic: (Topic) -> Unit,
-    onUpdateTopicLinks: (Topic, String) -> Unit
+    onToggle: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    onUpdateLinks: ((Topic, String) -> Unit)? = null,
+    onUpdateNotes: ((Topic, String) -> Unit)? = null,
+    onToggleDailyGoal: ((Topic) -> Unit)? = null
 ) {
-    var showLinksDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showLinkDialog by remember { mutableStateOf(false) }
+    var showNotesDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.background)
-            .clickable { onTopicToggle(topic) }
-            .padding(12.dp),
+            .clickable { onToggle() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val bgAlpha by animateFloatAsState(if (topic.isCompleted) 0.2f else 0.3f, label = "bgAlpha")
-        val bgColor = if (topic.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
-        
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(bgColor.copy(alpha = bgAlpha)),
+            modifier = Modifier.size(24.dp),
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(targetState = topic.isCompleted, label = "toggleIcon") { completed ->
@@ -1014,229 +731,121 @@ fun TopicItem(
                 fontWeight = FontWeight.Medium,
                 color = if (topic.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
             )
-            if (!topic.studyLinks.isNullOrBlank()) {
-                Text(
-                    text = "View links attached",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!topic.studyLinks.isNullOrBlank()) {
+                    Text(
+                        text = "Links attached",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                if (!topic.notes.isNullOrBlank()) {
+                    Text(
+                        text = "Notes attached",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                if (topic.isDailyGoal) {
+                    Text(
+                        text = "Daily Goal",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
-        IconButton(onClick = { showLinksDialog = true }) {
-            Icon(Icons.Default.Link, contentDescription = "Study Links", tint = MaterialTheme.colorScheme.primary)
-        }
-        IconButton(onClick = { onDeleteTopic(topic) }) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete Topic", tint = MaterialTheme.colorScheme.error)
+        
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                if (onToggleDailyGoal != null) {
+                    DropdownMenuItem(
+                        text = { Text(if (topic.isDailyGoal) "Remove Daily Goal" else "Set as Daily Goal") },
+                        onClick = { onToggleDailyGoal(topic); showMenu = false },
+                        leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) }
+                    )
+                }
+                if (onUpdateNotes != null) {
+                    DropdownMenuItem(
+                        text = { Text("Add/Edit Notes") },
+                        onClick = { showNotesDialog = true; showMenu = false },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                }
+                if (onUpdateLinks != null) {
+                    DropdownMenuItem(
+                        text = { Text("Attach Links") },
+                        onClick = { showLinkDialog = true; showMenu = false },
+                        leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) }
+                    )
+                }
+                if (onDelete != null) {
+                    DropdownMenuItem(
+                        text = { Text("Delete Topic") },
+                        onClick = { onDelete(); showMenu = false },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                    )
+                }
+            }
         }
     }
-
-    if (showLinksDialog) {
+    
+    if (showLinkDialog && onUpdateLinks != null) {
         var links by remember { mutableStateOf(topic.studyLinks ?: "") }
         AlertDialog(
-            onDismissRequest = { showLinksDialog = false },
-            title = { Text("Study Links & Notes") },
+            onDismissRequest = { showLinkDialog = false },
+            title = { Text("Attach Study Links") },
             text = {
                 OutlinedTextField(
                     value = links,
                     onValueChange = { links = it },
-                    label = { Text("Links / Notes") },
-                    modifier = Modifier.fillMaxWidth().height(150.dp),
-                    maxLines = 5
+                    label = { Text("URLs (comma separated)") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    onUpdateTopicLinks(topic, links)
-                    showLinksDialog = false
+                TextButton(onClick = {
+                    onUpdateLinks(topic, links)
+                    showLinkDialog = false
                 }) {
                     Text("Save")
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showLinksDialog = false }) {
-                    androidx.compose.material3.Text("Cancel")
+                TextButton(onClick = { showLinkDialog = false }) {
+                    Text("Cancel")
                 }
             }
         )
     }
-}
-
-@Composable
-fun StudyBackgroundPattern() {
-    val items = listOf("∑", "∫", "π", "E=mc²", "H₂O", "∞", "∆", "Ω", "√", "θ", "f(x)", "sin(θ)", "⚛", "🧬")
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().clipToBounds()) {
-        val random = java.util.Random(12345) // Fixed seed for stable layout
-        for (i in 0..30) {
-            val text = items[random.nextInt(items.size)]
-            val x = random.nextFloat()
-            val y = random.nextFloat()
-            val size = (16 + random.nextInt(24)).sp
-            val rotation = random.nextInt(360).toFloat()
-            Text(
-                text = text,
-                style = androidx.compose.ui.text.TextStyle(
-                    fontSize = size,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                ),
-                modifier = Modifier
-                    .offset(
-                        x = maxWidth * x,
-                        y = maxHeight * y
-                    )
-                    .rotate(rotation)
-            )
-        }
-    }
-}
-
-@Composable
-fun TimerScreen(viewModel: SyllabusViewModel) {
-    val timeInSeconds by viewModel.timerTime.collectAsStateWithLifecycle()
-    val totalTime by viewModel.timerTotalTime.collectAsStateWithLifecycle()
-    val isRunning by viewModel.isTimerRunning.collectAsStateWithLifecycle()
-    val minutes = timeInSeconds / 60
-    val seconds = timeInSeconds % 60
-    val timeString = String.format("%02d:%02d", minutes, seconds)
     
-    val context = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(timeInSeconds) {
-        if (timeInSeconds == 0 && totalTime > 0) {
-            try {
-                val notification = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
-                val r = android.media.RingtoneManager.getRingtone(context, notification)
-                r.play()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            
-            // Notification
-            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    "timer_channel",
-                    "Timer Notifications",
-                    android.app.NotificationManager.IMPORTANCE_HIGH
-                )
-                notificationManager.createNotificationChannel(channel)
-            }
-            
-            val builder = androidx.core.app.NotificationCompat.Builder(context, "timer_channel")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Time's Up!")
-                .setContentText("Your study session is complete. Take a break!")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-            
-            notificationManager.notify(1001, builder.build())
-        }
-    }
-    
-    var showCustomTimeDialog by remember { mutableStateOf(false) }
-    var workText by remember { mutableStateOf("WORK") }
-    val pixelFont = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(com.example.R.font.press_start_2p))
-    
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        StudyBackgroundPattern()
-        
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Text(
-                text = "Timer",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Text(
-                text = timeString,
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 80.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.clickable { showCustomTimeDialog = true }
-            )
-            
-            androidx.compose.foundation.text.BasicTextField(
-                value = workText,
-                onValueChange = { workText = it.take(8) },
-                textStyle = androidx.compose.ui.text.TextStyle(
-                    fontFamily = pixelFont,
-                    fontSize = 48.sp,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
-            ) {
-                Button(
-                    onClick = { if (isRunning) viewModel.pauseTimer() else viewModel.startTimer() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).height(56.dp)
-                ) {
-                    Text(if (isRunning) "PAUSE" else "START", fontWeight = FontWeight.Bold)
-                }
-                
-                Button(
-                    onClick = { viewModel.resetTimer(25) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).height(56.dp)
-                ) {
-                    Text("CANCEL", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-    
-    if (showCustomTimeDialog) {
-        var minutesStr by remember { mutableStateOf((timeInSeconds / 60).toString()) }
+    if (showNotesDialog && onUpdateNotes != null) {
+        var notes by remember { mutableStateOf(topic.notes ?: "") }
         AlertDialog(
-            onDismissRequest = { showCustomTimeDialog = false },
-            title = { Text("Set Timer (Minutes)") },
+            onDismissRequest = { showNotesDialog = false },
+            title = { Text("Add Notes") },
             text = {
                 OutlinedTextField(
-                    value = minutesStr,
-                    onValueChange = { minutesStr = it },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                    singleLine = true
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes for this topic") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
                 )
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val mins = minutesStr.toIntOrNull()
-                        if (mins != null && mins > 0) {
-                            viewModel.resetTimer(mins)
-                            showCustomTimeDialog = false
-                        }
-                    }
-                ) {
-                    Text("Set")
+                TextButton(onClick = {
+                    onUpdateNotes(topic, notes)
+                    showNotesDialog = false
+                }) {
+                    Text("Save")
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showCustomTimeDialog = false }) {
+                TextButton(onClick = { showNotesDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -1683,11 +1292,14 @@ fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
 }
 @Composable
 fun OverviewScreen(
-    selectedExams: Set<String>,
-    selectedSubjects: Set<String>,
-    allTopics: List<Topic>,
+    viewModel: SyllabusViewModel,
     onExamClick: (String) -> Unit
 ) {
+    val selectedExams by viewModel.selectedExams.collectAsStateWithLifecycle()
+    val selectedSubjects by viewModel.selectedSubjects.collectAsStateWithLifecycle()
+    val allTopics by viewModel.allTopics.collectAsStateWithLifecycle()
+    val studyStreak by viewModel.studyStreak.collectAsStateWithLifecycle()
+
     var selectedFilter by remember { mutableStateOf<String?>(null) }
     
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1725,6 +1337,49 @@ fun OverviewScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(androidx.compose.material.icons.Icons.Default.LocalFireDepartment, contentDescription = "Streak", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("Study Streak", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("$studyStreak Days", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+            }
+            
+            item {
+                val dailyGoals = allTopics.filter { it.isDailyGoal && !it.isCompleted }
+                if (dailyGoals.isNotEmpty()) {
+                    Text("Today's Goals", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dailyGoals.forEach { goal ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(goal.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    IconButton(onClick = { viewModel.toggleTopicCompletion(goal) }) {
+                                        Icon(androidx.compose.material.icons.Icons.Outlined.Circle, contentDescription = "Complete")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 Text(
                     if (selectedFilter == null) "All Exams" else "$selectedFilter Progress",
@@ -1895,6 +1550,256 @@ fun WelcomeScreen(onStart: () -> Unit) {
                     Text("Get Started", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(12.dp))
                     Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FlashcardsScreen(viewModel: SyllabusViewModel) {
+    val flashcards by viewModel.flashcards.collectAsStateWithLifecycle()
+    var showAddCardDialog by remember { mutableStateOf(false) }
+    var reviewMode by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Flashcards", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (flashcards.isNotEmpty()) {
+                    Button(onClick = { reviewMode = true }) {
+                        Text("Review")
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (flashcards.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No flashcards yet. Add one to start Active Recall!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(flashcards) { card ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(card.question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("A: ${card.answer}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        FloatingActionButton(
+            onClick = { showAddCardDialog = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Flashcard")
+        }
+    }
+    
+    if (showAddCardDialog) {
+        var question by remember { mutableStateOf("") }
+        var answer by remember { mutableStateOf("") }
+        val currentExam by viewModel.currentExam.collectAsStateWithLifecycle()
+        
+        AlertDialog(
+            onDismissRequest = { showAddCardDialog = false },
+            title = { Text("Add Flashcard") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = question,
+                        onValueChange = { question = it },
+                        label = { Text("Question") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = answer,
+                        onValueChange = { answer = it },
+                        label = { Text("Answer") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (question.isNotBlank() && answer.isNotBlank() && currentExam != null) {
+                        viewModel.addFlashcard(com.example.data.Flashcard(exam = currentExam!!, subject = "General", question = question, answer = answer))
+                        showAddCardDialog = false
+                    }
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddCardDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    if (reviewMode && flashcards.isNotEmpty()) {
+        // Simple review mode dialog
+        var currentIndex by remember { mutableStateOf(0) }
+        var showAnswer by remember { mutableStateOf(false) }
+        val card = flashcards[currentIndex]
+        
+        AlertDialog(
+            onDismissRequest = { reviewMode = false },
+            title = { Text("Review") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(card.question, style = MaterialTheme.typography.headlineSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    if (showAnswer) {
+                        Text(card.answer, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    } else {
+                        Button(onClick = { showAnswer = true }) {
+                            Text("Show Answer")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (showAnswer) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            viewModel.updateFlashcardProgress(card, 1)
+                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
+                        }) { Text("Hard") }
+                        TextButton(onClick = {
+                            viewModel.updateFlashcardProgress(card, 3)
+                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
+                        }) { Text("Good") }
+                        TextButton(onClick = {
+                            viewModel.updateFlashcardProgress(card, 5)
+                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
+                        }) { Text("Easy") }
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun VaultScreen(viewModel: SyllabusViewModel) {
+    val topics by viewModel.allTopics.collectAsStateWithLifecycle()
+    val vaultTopics = topics.filter { !it.notes.isNullOrBlank() || !it.studyLinks.isNullOrBlank() }
+    
+    Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text("Resource Vault", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (vaultTopics.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("Your vault is empty. Add notes or links to topics to see them here.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(vaultTopics) { topic ->
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(topic.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                if (!topic.notes.isNullOrBlank()) {
+                                    Text("Notes:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text(topic.notes!!, style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                if (!topic.studyLinks.isNullOrBlank()) {
+                                    Text("Links:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text(topic.studyLinks!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TimerScreen(viewModel: SyllabusViewModel) {
+    var timeLeft by remember { mutableStateOf(25 * 60) }
+    var isRunning by remember { mutableStateOf(false) }
+    
+    androidx.compose.runtime.LaunchedEffect(isRunning) {
+        if (isRunning) {
+            while (timeLeft > 0) {
+                kotlinx.coroutines.delay(1000)
+                timeLeft--
+            }
+            if (timeLeft == 0) {
+                isRunning = false
+                viewModel.incrementStreak()
+            }
+        }
+    }
+    
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Focus Timer", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(240.dp)) {
+                CircularProgressIndicator(
+                    progress = { timeLeft.toFloat() / (25 * 60) },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 12.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer,
+                    strokeCap = StrokeCap.Round
+                )
+                Text(
+                    text = String.format("%02d:%02d", timeLeft / 60, timeLeft % 60),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(
+                    onClick = { isRunning = !isRunning },
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isRunning) "Pause" else "Start",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                
+                Button(
+                    onClick = { 
+                        isRunning = false
+                        timeLeft = 25 * 60
+                    },
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reset",
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
             }
         }
