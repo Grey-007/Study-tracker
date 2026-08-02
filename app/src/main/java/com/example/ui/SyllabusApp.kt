@@ -1,4 +1,7 @@
 package com.example.ui
+
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.Offset
@@ -48,6 +51,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.border
@@ -95,11 +100,25 @@ fun SyllabusApp(viewModel: SyllabusViewModel) {
                 }
             }
             AppState.NEEDS_SETUP -> {
-                SetupScreen(
-                    onComplete = { exam, subjects ->
-                        viewModel.completeSetup(exam, subjects)
+                var showWelcome by remember { mutableStateOf(true) }
+                AnimatedContent(
+                    targetState = showWelcome,
+                    transitionSpec = {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                        slideOutHorizontally { width -> -width } + fadeOut()
+                    },
+                    label = "welcome_transition"
+                ) { isWelcome ->
+                    if (isWelcome) {
+                        WelcomeScreen(onStart = { showWelcome = false })
+                    } else {
+                        SetupScreen(
+                            onComplete = { exam, subjects ->
+                                viewModel.completeSetup(exam, subjects)
+                            }
+                        )
                     }
-                )
+                }
             }
             AppState.COMPLETE -> {
                 DashboardScreen(viewModel)
@@ -272,6 +291,12 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
     var currentTab by remember { mutableStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     var showProfile by remember { mutableStateOf(false) }
+    var showCountdown by remember { mutableStateOf(false) }
+    
+    if (showCountdown) {
+        ExamCountdownScreen(exam = currentExam, onBack = { showCountdown = false })
+        return
+    }
     val userName by viewModel.userName.collectAsStateWithLifecycle()
 
 
@@ -428,7 +453,7 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
                     )
                 } else if (tab == 1) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        ExamCountdownCard(currentExam)
+                        ExamCountdownCard(currentExam, onClick = { showCountdown = true })
                         val overallCompletion = viewModel.getCompletionPercentage(topics)
                         OverallProgressCard(progress = overallCompletion)
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1037,16 +1062,43 @@ fun TopicItem(
 }
 
 @Composable
+fun StudyBackgroundPattern() {
+    val items = listOf("∑", "∫", "π", "E=mc²", "H₂O", "∞", "∆", "Ω", "√", "θ", "f(x)", "sin(θ)", "⚛", "🧬")
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().clipToBounds()) {
+        val random = java.util.Random(12345) // Fixed seed for stable layout
+        for (i in 0..30) {
+            val text = items[random.nextInt(items.size)]
+            val x = random.nextFloat()
+            val y = random.nextFloat()
+            val size = (16 + random.nextInt(24)).sp
+            val rotation = random.nextInt(360).toFloat()
+            Text(
+                text = text,
+                style = androidx.compose.ui.text.TextStyle(
+                    fontSize = size,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                ),
+                modifier = Modifier
+                    .offset(
+                        x = maxWidth * x,
+                        y = maxHeight * y
+                    )
+                    .rotate(rotation)
+            )
+        }
+    }
+}
+
+@Composable
 fun TimerScreen(viewModel: SyllabusViewModel) {
     val timeInSeconds by viewModel.timerTime.collectAsStateWithLifecycle()
     val totalTime by viewModel.timerTotalTime.collectAsStateWithLifecycle()
     val isRunning by viewModel.isTimerRunning.collectAsStateWithLifecycle()
-
     val minutes = timeInSeconds / 60
     val seconds = timeInSeconds % 60
     val timeString = String.format("%02d:%02d", minutes, seconds)
     
-    val progress = if (totalTime > 0) timeInSeconds.toFloat() / totalTime else 0f
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(timeInSeconds) {
         if (timeInSeconds == 0 && totalTime > 0) {
@@ -1075,94 +1127,95 @@ fun TimerScreen(viewModel: SyllabusViewModel) {
                 .setContentText("Your study session is complete. Take a break!")
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
-                
+            
             notificationManager.notify(1001, builder.build())
         }
     }
     
     var showCustomTimeDialog by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Study Timer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(48.dp))
+    var workText by remember { mutableStateOf("WORK") }
+    val pixelFont = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(com.example.R.font.press_start_2p))
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        StudyBackgroundPattern()
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Text(
+                text = "Timer",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
             
-            Box(
-                modifier = Modifier
-                    .size(280.dp),
-                contentAlignment = Alignment.Center
+            Text(
+                text = timeString,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 80.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable { showCustomTimeDialog = true }
+            )
+            
+            androidx.compose.foundation.text.BasicTextField(
+                value = workText,
+                onValueChange = { workText = it.take(8) },
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = pixelFont,
+                    fontSize = 48.sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
             ) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 12.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer,
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = timeString,
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 64.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isRunning) "Focus Mode" else if (timeInSeconds == 0) "Time's Up!" else "Ready",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(48.dp))
-            
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                if (isRunning) {
-                    FloatingActionButton(
-                        onClick = { viewModel.pauseTimer() },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause")
-                    }
-                } else {
-                    FloatingActionButton(
-                        onClick = { 
-                            if (timeInSeconds == 0) viewModel.resetTimer(25)
-                            viewModel.startTimer() 
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play")
-                    }
+                Button(
+                    onClick = { if (isRunning) viewModel.pauseTimer() else viewModel.startTimer() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Text(if (isRunning) "PAUSE" else "START", fontWeight = FontWeight.Bold)
                 }
                 
-                FloatingActionButton(
+                Button(
                     onClick = { viewModel.resetTimer(25) },
-                    containerColor = MaterialTheme.colorScheme.surface
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Reset")
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            androidx.compose.material3.TextButton(onClick = { showCustomTimeDialog = true }) {
-                Text("Set Custom Time")
             }
         }
     }
-
+    
     if (showCustomTimeDialog) {
-        var minutesStr by remember { mutableStateOf("") }
-        androidx.compose.material3.AlertDialog(
+        var minutesStr by remember { mutableStateOf((timeInSeconds / 60).toString()) }
+        AlertDialog(
             onDismissRequest = { showCustomTimeDialog = false },
             title = { Text("Set Timer (Minutes)") },
             text = {
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     value = minutesStr,
                     onValueChange = { minutesStr = it },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
@@ -1190,8 +1243,9 @@ fun TimerScreen(viewModel: SyllabusViewModel) {
         )
     }
 }
+
 @Composable
-fun ExamCountdownCard(exam: String?) {
+fun ExamCountdownCard(exam: String?, onClick: () -> Unit) {
     if (exam == null) return
     
     val examDate = when (exam.uppercase()) {
@@ -1209,7 +1263,8 @@ fun ExamCountdownCard(exam: String?) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -1229,7 +1284,7 @@ fun ExamCountdownCard(exam: String?) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Keep up the hard work!",
+                    text = "Tap to view full countdown",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
@@ -1250,6 +1305,168 @@ fun ExamCountdownCard(exam: String?) {
         }
     }
 }
+
+@Composable
+fun CountdownUnit(value: String, label: String, progress: Float, color: androidx.compose.ui.graphics.Color) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 1000, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "progress"
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.displayLarge.copy(fontSize = 72.sp, fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .height(16.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(animatedProgress)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(color)
+            )
+        }
+    }
+}
+
+@Composable
+fun ExamCountdownScreen(exam: String?, onBack: () -> Unit) {
+    if (exam == null) return
+    
+    val examDate = when (exam.uppercase()) {
+        "JEE" -> java.time.LocalDateTime.of(2027, 1, 24, 9, 0)
+        "NEET" -> java.time.LocalDateTime.of(2027, 5, 2, 14, 0)
+        "CUET" -> java.time.LocalDateTime.of(2027, 5, 15, 9, 0)
+        else -> return
+    }
+    
+    var timeNow by remember { mutableStateOf(java.time.LocalDateTime.now()) }
+    
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            timeNow = java.time.LocalDateTime.now()
+        }
+    }
+    
+    val duration = java.time.Duration.between(timeNow, examDate)
+    val totalSeconds = maxOf(0L, duration.seconds)
+    
+    val days = totalSeconds / (24 * 3600)
+    val hours = (totalSeconds % (24 * 3600)) / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    
+    val maxDays = 365f
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(24.dp)
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.TopStart)
+        ) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+        }
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 56.dp)
+        ) {
+            Text(
+                text = "The exam begins in",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            val colors = listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.secondary,
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.primary
+            )
+            
+            CountdownUnit(
+                value = String.format("%02d", days),
+                label = "Days",
+                progress = minOf(1f, days / maxDays),
+                color = colors[0]
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            CountdownUnit(
+                value = String.format("%02d", hours),
+                label = "Hours",
+                progress = hours / 24f,
+                color = colors[1]
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            CountdownUnit(
+                value = String.format("%02d", minutes),
+                label = "Min",
+                progress = minutes / 60f,
+                color = colors[2]
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            CountdownUnit(
+                value = String.format("%02d", seconds),
+                label = "Sec",
+                progress = seconds / 60f,
+                color = colors[3]
+            )
+        }
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.BottomEnd).clickable { /* Register action if applicable */ }
+        ) {
+            Text(
+                text = "Prepare\nNow",
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Right,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+    }
+}
+
 @Composable
 fun ProductivityHeatmap(topics: List<Topic>, modifier: Modifier = Modifier) {
     val completedTopics = topics.filter { it.isCompleted && it.completedDateMillis != null }
@@ -1592,5 +1809,94 @@ fun OverviewScreen(
             }
         }
     }
+    }
+}
+
+@Composable
+fun WelcomeScreen(onStart: () -> Unit) {
+    var isVisible by remember { mutableStateOf(false) }
+    
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        isVisible = true
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInVertically(initialOffsetY = { -it / 2 }) + fadeIn(animationSpec = tween(1000))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Insights,
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(72.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(1000, delayMillis = 400))
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Master Your prep",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Track your syllabus effortlessly, analyze weak areas, and ace your upcoming exams with focus.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 24.sp
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(64.dp))
+            
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(animationSpec = tween(1000, delayMillis = 800))
+            ) {
+                Button(
+                    onClick = onStart,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp),
+                    shape = RoundedCornerShape(30.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text("Get Started", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                }
+            }
+        }
     }
 }
