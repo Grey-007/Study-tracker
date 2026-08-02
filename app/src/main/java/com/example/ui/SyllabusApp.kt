@@ -55,6 +55,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1416,21 +1417,55 @@ fun OverviewScreen(
     allTopics: List<Topic>,
     onExamClick: (String) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Text(
-                "Your Exams",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+    var selectedFilter by remember { mutableStateOf<String?>(null) }
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        ScrollableTabRow(
+            selectedTabIndex = if (selectedFilter == null) 0 else selectedExams.toList().indexOf(selectedFilter) + 1,
+            edgePadding = 16.dp,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            indicator = { tabPositions ->
+                val index = if (selectedFilter == null) 0 else selectedExams.toList().indexOf(selectedFilter) + 1
+                if (index >= 0 && index < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[index]),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        ) {
+            Tab(
+                selected = selectedFilter == null,
+                onClick = { selectedFilter = null },
+                text = { Text("All") }
             )
+            selectedExams.toList().forEach { exam ->
+                Tab(
+                    selected = selectedFilter == exam,
+                    onClick = { selectedFilter = exam },
+                    text = { Text(exam) }
+                )
+            }
         }
         
-        items(selectedExams.toList()) { exam ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    if (selectedFilter == null) "All Exams" else "$selectedFilter Progress",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            
+            val examsToShow = if (selectedFilter == null) selectedExams.toList() else listOf(selectedFilter!!)
+            
+            items(examsToShow) { exam ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1501,5 +1536,6 @@ fun OverviewScreen(
                 }
             }
         }
+    }
     }
 }
