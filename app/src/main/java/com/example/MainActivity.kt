@@ -66,12 +66,11 @@ class MainActivity : ComponentActivity() {
         val viewModel = ViewModelProvider(this, factory)[SyllabusViewModel::class.java]
 
         setContent {
-            val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             
             MyApplicationTheme(
-                darkTheme = isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme(),
-                customPrimaryColor = themeColor
+                darkTheme = isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme()
+                
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

@@ -41,6 +41,11 @@ import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ViewCarousel
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Timer
+
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
@@ -308,75 +313,104 @@ fun DashboardScreen(viewModel: SyllabusViewModel) {
         ExamCountdownScreen(exam = currentExam, onBack = { showCountdown = false })
         return
     }
-    val userName by viewModel.userName.collectAsStateWithLifecycle()
 
-
-
-    if (showProfile) {
-        ProfileScreen(viewModel = viewModel, onBack = { showProfile = false })
-        return
-    }
-    
     if (showSettings) {
         SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
         return
     }
-        Scaffold(
+    
+    Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .clickable { showProfile = true }
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (userName?.isNotBlank() == true) Text(userName!!.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) else if (userName?.isNotBlank() == true) Text(userName!!.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) else Text("S", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Study Dashboard", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleMedium)
-                            Text("$currentExam Prep", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Hello, Student", 
+                            style = MaterialTheme.typography.titleMedium, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Your Custom\nSyllabus", 
+                            style = MaterialTheme.typography.displaySmall, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            lineHeight = 40.sp
+                        )
                     }
-                },
-                actions = {
-                    IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(
+                        onClick = { showSettings = true },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
+                }
+            }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                val tabs = listOf(
-                    "Overview" to Icons.Default.Home,
-                    "Syllabus" to Icons.Default.List,
-                    "Cards" to androidx.compose.material.icons.Icons.Default.ViewCarousel,
-                    "Vault" to androidx.compose.material.icons.Icons.Default.Folder,
-                    "Timer" to Icons.Default.Timer
-                )
-                tabs.forEachIndexed { index, pair ->
-                    NavigationBarItem(
-                        selected = currentTab == index,
-                        onClick = { currentTab = index },
-                        icon = { Icon(pair.second, contentDescription = pair.first) },
-                        label = { Text(pair.first, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val tabs = listOf(
+                            "Overview" to Icons.Default.Home,
+                            "Syllabus" to Icons.Default.Menu,
+                            "Cards" to Icons.Default.ViewCarousel,
+                            "Vault" to Icons.Default.Folder,
+                            "Timer" to Icons.Default.Timer
                         )
-                    )
+                        tabs.forEachIndexed { index, pair ->
+                            val selected = currentTab == index
+                            IconButton(
+                                onClick = { currentTab = index },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(4.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        pair.second, 
+                                        contentDescription = pair.first,
+                                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(if (selected) 28.dp else 24.dp)
+                                    )
+                                    if (selected) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(4.dp)
+                                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1249,32 +1283,7 @@ fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text("Theme Color", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                colors.forEach { colorInt ->
-                    val color = androidx.compose.ui.graphics.Color(colorInt)
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .clickable { viewModel.updateThemeColor(colorInt) }
-                            .then(
-                                if (themeColor == colorInt) {
-                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                } else {
-                                    Modifier
-                                }
-                            )
-                    )
-                }
-            }
             
-            Spacer(modifier = Modifier.height(32.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
