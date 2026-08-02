@@ -23,170 +23,112 @@ enum class AppThemePalette {
     PALETTE_1, PALETTE_2, PALETTE_3, PALETTE_4, PALETTE_5
 }
 
-// Default (Palette 4)
-private val P4LightColorScheme = lightColorScheme(
-    primary = P4_DarkBlue,
-    onPrimary = P4_OffWhite,
-    primaryContainer = P4_LightBlueGrey,
-    onPrimaryContainer = P4_VeryDarkBlue,
-    secondary = P4_Blue,
-    onSecondary = P4_OffWhite,
-    background = P4_OffWhite,
-    onBackground = P4_VeryDarkBlue,
-    surface = P4_OffWhite,
-    onSurface = P4_VeryDarkBlue,
-    surfaceVariant = P4_LightBlueGrey,
-    onSurfaceVariant = P4_Blue
-)
-
-private val P4DarkColorScheme = darkColorScheme(
-    primary = P4_LightBlueGrey,
-    onPrimary = P4_VeryDarkBlue,
-    primaryContainer = P4_DarkBlue,
-    onPrimaryContainer = P4_OffWhite,
-    secondary = P4_LightBlueGrey,
-    onSecondary = P4_VeryDarkBlue,
-    background = P4_VeryDarkBlue,
-    onBackground = P4_OffWhite,
-    surface = P4_Blue,
-    onSurface = P4_OffWhite,
-    surfaceVariant = P4_DarkBlue,
-    onSurfaceVariant = P4_OffWhite
-)
-
 // Palette 1
 private val P1LightColorScheme = lightColorScheme(
-    primary = P1_Green,
-    onPrimary = P1_DarkGrey,
-    primaryContainer = P1_LightBlue,
-    onPrimaryContainer = P1_DarkGrey,
-    secondary = P1_GreyBlue,
-    onSecondary = P1_White,
-    background = P1_White,
-    onBackground = P1_DarkGrey,
-    surface = P1_White,
-    onSurface = P1_DarkGrey,
-    surfaceVariant = P1_LightBlue,
-    onSurfaceVariant = P1_DarkGrey
+    primary = LavenderLightPrimary, onPrimary = LavenderLightOnPrimary,
+    primaryContainer = LavenderLightPrimaryContainer, onPrimaryContainer = LavenderLightOnPrimaryContainer,
+    secondary = LavenderLightSecondary, onSecondary = LavenderLightOnSecondary,
+    secondaryContainer = LavenderLightSecondaryContainer, onSecondaryContainer = LavenderLightOnSecondaryContainer,
+    background = LavenderLightBackground, onBackground = LavenderLightOnBackground,
+    surface = LavenderLightSurface, onSurface = LavenderLightOnSurface,
+    surfaceVariant = LavenderLightSurfaceVariant, onSurfaceVariant = LavenderLightOnSurfaceVariant
 )
-
 private val P1DarkColorScheme = darkColorScheme(
-    primary = P1_Green,
-    onPrimary = P1_DarkGrey,
-    primaryContainer = P1_GreyBlue,
-    onPrimaryContainer = P1_White,
-    secondary = P1_LightBlue,
-    onSecondary = P1_DarkGrey,
-    background = P1_DarkGrey,
-    onBackground = P1_White,
-    surface = P1_DarkGrey,
-    onSurface = P1_White,
-    surfaceVariant = P1_GreyBlue,
-    onSurfaceVariant = P1_White
+    primary = LavenderDarkPrimary, onPrimary = LavenderDarkOnPrimary,
+    primaryContainer = LavenderDarkPrimaryContainer, onPrimaryContainer = LavenderDarkOnPrimaryContainer,
+    secondary = LavenderDarkSecondary, onSecondary = LavenderDarkOnSecondary,
+    secondaryContainer = LavenderDarkSecondaryContainer, onSecondaryContainer = LavenderDarkOnSecondaryContainer,
+    background = LavenderDarkBackground, onBackground = LavenderDarkOnBackground,
+    surface = LavenderDarkSurface, onSurface = LavenderDarkOnSurface,
+    surfaceVariant = LavenderDarkSurfaceVariant, onSurfaceVariant = LavenderDarkOnSurfaceVariant
 )
 
 // Palette 2
 private val P2LightColorScheme = lightColorScheme(
-    primary = P2_Green,
-    onPrimary = P2_LightGrey,
-    primaryContainer = P2_Green,
-    onPrimaryContainer = P2_Black,
-    secondary = P2_DarkGreen,
-    onSecondary = P2_LightGrey,
-    background = P2_LightGrey,
-    onBackground = P2_Black,
-    surface = P2_LightGrey,
-    onSurface = P2_Black,
-    surfaceVariant = P2_Grey,
-    onSurfaceVariant = P2_LightGrey
+    primary = MintLightPrimary, onPrimary = MintLightOnPrimary,
+    primaryContainer = MintLightPrimaryContainer, onPrimaryContainer = MintLightOnPrimaryContainer,
+    secondary = MintLightSecondary, onSecondary = MintLightOnSecondary,
+    secondaryContainer = MintLightSecondaryContainer, onSecondaryContainer = MintLightOnSecondaryContainer,
+    background = MintLightBackground, onBackground = MintLightOnBackground,
+    surface = MintLightSurface, onSurface = MintLightOnSurface,
+    surfaceVariant = MintLightSurfaceVariant, onSurfaceVariant = MintLightOnSurfaceVariant
 )
-
 private val P2DarkColorScheme = darkColorScheme(
-    primary = P2_Green,
-    onPrimary = P2_Black,
-    primaryContainer = P2_DarkGreen,
-    onPrimaryContainer = P2_LightGrey,
-    secondary = P2_Green,
-    onSecondary = P2_Black,
-    background = P2_Black,
-    onBackground = P2_LightGrey,
-    surface = P2_Grey,
-    onSurface = P2_LightGrey,
-    surfaceVariant = P2_DarkGreen,
-    onSurfaceVariant = P2_LightGrey
+    primary = MintDarkPrimary, onPrimary = MintDarkOnPrimary,
+    primaryContainer = MintDarkPrimaryContainer, onPrimaryContainer = MintDarkOnPrimaryContainer,
+    secondary = MintDarkSecondary, onSecondary = MintDarkOnSecondary,
+    secondaryContainer = MintDarkSecondaryContainer, onSecondaryContainer = MintDarkOnSecondaryContainer,
+    background = MintDarkBackground, onBackground = MintDarkOnBackground,
+    surface = MintDarkSurface, onSurface = MintDarkOnSurface,
+    surfaceVariant = MintDarkSurfaceVariant, onSurfaceVariant = MintDarkOnSurfaceVariant
 )
 
 // Palette 3
 private val P3LightColorScheme = lightColorScheme(
-    primary = P3_Green,
-    onPrimary = P3_DarkGrey,
-    primaryContainer = P3_LightGreen,
-    onPrimaryContainer = P3_DarkGrey,
-    secondary = P3_Orange,
-    onSecondary = P3_LightYellow,
-    background = P3_LightYellow,
-    onBackground = P3_DarkGrey,
-    surface = P3_LightYellow,
-    onSurface = P3_DarkGrey,
-    surfaceVariant = P3_LightGreen,
-    onSurfaceVariant = P3_DarkGrey
+    primary = PeachLightPrimary, onPrimary = PeachLightOnPrimary,
+    primaryContainer = PeachLightPrimaryContainer, onPrimaryContainer = PeachLightOnPrimaryContainer,
+    secondary = PeachLightSecondary, onSecondary = PeachLightOnSecondary,
+    secondaryContainer = PeachLightSecondaryContainer, onSecondaryContainer = PeachLightOnSecondaryContainer,
+    background = PeachLightBackground, onBackground = PeachLightOnBackground,
+    surface = PeachLightSurface, onSurface = PeachLightOnSurface,
+    surfaceVariant = PeachLightSurfaceVariant, onSurfaceVariant = PeachLightOnSurfaceVariant
+)
+private val P3DarkColorScheme = darkColorScheme(
+    primary = PeachDarkPrimary, onPrimary = PeachDarkOnPrimary,
+    primaryContainer = PeachDarkPrimaryContainer, onPrimaryContainer = PeachDarkOnPrimaryContainer,
+    secondary = PeachDarkSecondary, onSecondary = PeachDarkOnSecondary,
+    secondaryContainer = PeachDarkSecondaryContainer, onSecondaryContainer = PeachDarkOnSecondaryContainer,
+    background = PeachDarkBackground, onBackground = PeachDarkOnBackground,
+    surface = PeachDarkSurface, onSurface = PeachDarkOnSurface,
+    surfaceVariant = PeachDarkSurfaceVariant, onSurfaceVariant = PeachDarkOnSurfaceVariant
 )
 
-private val P3DarkColorScheme = darkColorScheme(
-    primary = P3_Green,
-    onPrimary = P3_DarkGrey,
-    primaryContainer = P3_Orange,
-    onPrimaryContainer = P3_LightYellow,
-    secondary = P3_LightGreen,
-    onSecondary = P3_DarkGrey,
-    background = P3_DarkGrey,
-    onBackground = P3_LightYellow,
-    surface = P3_DarkGrey,
-    onSurface = P3_LightYellow,
-    surfaceVariant = P3_Orange,
-    onSurfaceVariant = P3_LightYellow
+// Palette 4
+private val P4LightColorScheme = lightColorScheme(
+    primary = OceanLightPrimary, onPrimary = OceanLightOnPrimary,
+    primaryContainer = OceanLightPrimaryContainer, onPrimaryContainer = OceanLightOnPrimaryContainer,
+    secondary = OceanLightSecondary, onSecondary = OceanLightOnSecondary,
+    secondaryContainer = OceanLightSecondaryContainer, onSecondaryContainer = OceanLightOnSecondaryContainer,
+    background = OceanLightBackground, onBackground = OceanLightOnBackground,
+    surface = OceanLightSurface, onSurface = OceanLightOnSurface,
+    surfaceVariant = OceanLightSurfaceVariant, onSurfaceVariant = OceanLightOnSurfaceVariant
+)
+private val P4DarkColorScheme = darkColorScheme(
+    primary = OceanDarkPrimary, onPrimary = OceanDarkOnPrimary,
+    primaryContainer = OceanDarkPrimaryContainer, onPrimaryContainer = OceanDarkOnPrimaryContainer,
+    secondary = OceanDarkSecondary, onSecondary = OceanDarkOnSecondary,
+    secondaryContainer = OceanDarkSecondaryContainer, onSecondaryContainer = OceanDarkOnSecondaryContainer,
+    background = OceanDarkBackground, onBackground = OceanDarkOnBackground,
+    surface = OceanDarkSurface, onSurface = OceanDarkOnSurface,
+    surfaceVariant = OceanDarkSurfaceVariant, onSurfaceVariant = OceanDarkOnSurfaceVariant
 )
 
 // Palette 5
 private val P5LightColorScheme = lightColorScheme(
-    primary = P5_Green,
-    onPrimary = P5_LightGreen,
-    primaryContainer = P5_LightGreen,
-    onPrimaryContainer = P5_DarkBrown,
-    secondary = P5_Orange,
-    onSecondary = P5_DarkBrown,
-    background = P5_LightGreen,
-    onBackground = P5_DarkBrown,
-    surface = P5_LightGreen,
-    onSurface = P5_DarkBrown,
-    surfaceVariant = P5_Orange,
-    onSurfaceVariant = P5_DarkBrown,
-    error = P5_Red,
-    onError = P5_LightGreen
+    primary = RoseLightPrimary, onPrimary = RoseLightOnPrimary,
+    primaryContainer = RoseLightPrimaryContainer, onPrimaryContainer = RoseLightOnPrimaryContainer,
+    secondary = RoseLightSecondary, onSecondary = RoseLightOnSecondary,
+    secondaryContainer = RoseLightSecondaryContainer, onSecondaryContainer = RoseLightOnSecondaryContainer,
+    background = RoseLightBackground, onBackground = RoseLightOnBackground,
+    surface = RoseLightSurface, onSurface = RoseLightOnSurface,
+    surfaceVariant = RoseLightSurfaceVariant, onSurfaceVariant = RoseLightOnSurfaceVariant
+)
+private val P5DarkColorScheme = darkColorScheme(
+    primary = RoseDarkPrimary, onPrimary = RoseDarkOnPrimary,
+    primaryContainer = RoseDarkPrimaryContainer, onPrimaryContainer = RoseDarkOnPrimaryContainer,
+    secondary = RoseDarkSecondary, onSecondary = RoseDarkOnSecondary,
+    secondaryContainer = RoseDarkSecondaryContainer, onSecondaryContainer = RoseDarkOnSecondaryContainer,
+    background = RoseDarkBackground, onBackground = RoseDarkOnBackground,
+    surface = RoseDarkSurface, onSurface = RoseDarkOnSurface,
+    surfaceVariant = RoseDarkSurfaceVariant, onSurfaceVariant = RoseDarkOnSurfaceVariant
 )
 
-private val P5DarkColorScheme = darkColorScheme(
-    primary = P5_Green,
-    onPrimary = P5_DarkBrown,
-    primaryContainer = P5_Orange,
-    onPrimaryContainer = P5_DarkBrown,
-    secondary = P5_Red,
-    onSecondary = P5_DarkBrown,
-    background = P5_DarkBrown,
-    onBackground = P5_LightGreen,
-    surface = P5_DarkBrown,
-    onSurface = P5_LightGreen,
-    surfaceVariant = P5_Orange,
-    onSurfaceVariant = P5_DarkBrown,
-    error = P5_Red,
-    onError = P5_DarkBrown
-)
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
-    appTheme: AppThemePalette = AppThemePalette.PALETTE_4,
+    appTheme: AppThemePalette = AppThemePalette.PALETTE_1,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {

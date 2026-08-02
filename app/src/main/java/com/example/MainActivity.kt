@@ -24,6 +24,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.data.UserPreferencesRepository
 import com.example.ui.SyllabusViewModel
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.AppThemePalette
+
 import com.example.ui.SyllabusApp
 import com.example.util.NotificationUtil
 
@@ -67,10 +69,20 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val themeColorInt by viewModel.themeColor.collectAsStateWithLifecycle()
             
+            val appTheme = when (themeColorInt) {
+                0 -> AppThemePalette.PALETTE_1
+                1 -> AppThemePalette.PALETTE_2
+                2 -> AppThemePalette.PALETTE_3
+                3 -> AppThemePalette.PALETTE_4
+                4 -> AppThemePalette.PALETTE_5
+                else -> AppThemePalette.PALETTE_1
+            }
+
             MyApplicationTheme(
-                darkTheme = isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme()
-                
+                darkTheme = isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme(),
+                appTheme = appTheme
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

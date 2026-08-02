@@ -1254,15 +1254,12 @@ fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
     val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     
-    val colors = listOf(
-        0xFF6200EE.toInt(), // Default Deep Purple
-        0xFF03DAC5.toInt(), // Teal
-        0xFFB00020.toInt(), // Red
-        0xFF3700B3.toInt(), // Dark Purple
-        0xFF018786.toInt(), // Dark Teal
-        0xFF4CAF50.toInt(), // Green
-        0xFFFF9800.toInt(), // Orange
-        0xFF2196F3.toInt()  // Blue
+    val themes = listOf(
+        "Theme 1 (Lavender)",
+        "Theme 2 (Mint)",
+        "Theme 3 (Peach)",
+        "Theme 4 (Ocean)",
+        "Theme 5 (Rose)"
     )
     
     Scaffold(
@@ -1283,7 +1280,30 @@ fun SettingsScreen(viewModel: SyllabusViewModel, onBack: () -> Unit) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            Text("Theme Palette", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(16.dp))
             
+            themes.forEachIndexed { index, name ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.updateThemeColor(index) }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(name, style = MaterialTheme.typography.bodyLarge)
+                    if (themeColor == index || (themeColor == null && index == 0)) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
