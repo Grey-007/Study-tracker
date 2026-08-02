@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         val database = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java, "syllabus-database"
-        ).addMigrations(AppDatabase.MIGRATION_3_4).fallbackToDestructiveMigration().build()
+        ).addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5).fallbackToDestructiveMigration().build()
         val repository = TopicRepository(database.topicDao())
         val testMarkRepository = TestMarkRepository(database.testMarkDao())
         val flashcardRepository = FlashcardRepository(database.flashcardDao())

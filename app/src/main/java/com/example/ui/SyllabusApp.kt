@@ -7,6 +7,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.material.icons.filled.Settings
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Info
+
 import androidx.compose.foundation.border
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -54,6 +59,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.shape.CircleShape
@@ -1586,18 +1592,79 @@ fun WelcomeScreen(onStart: () -> Unit) {
 }
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun FlashcardsScreen(viewModel: SyllabusViewModel) {
     val flashcards by viewModel.flashcards.collectAsStateWithLifecycle()
     var showAddCardDialog by remember { mutableStateOf(false) }
-    var reviewMode by remember { mutableStateOf(false) }
+    
+    // Review mode state
+    var reviewModeChapter by remember { mutableStateOf<String?>(null) }
+    var reviewModeStartIndex by remember { mutableStateOf(0) }
+    var reviewCards by remember { mutableStateOf<List<com.example.data.Flashcard>>(emptyList()) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val reader = java.io.BufferedReader(java.io.InputStreamReader(inputStream))
+                    var line = reader.readLine()
+                    val currentExam = viewModel.currentExam.value ?: return@launch
+                    while (line != null) {
+                        val parts = line.split(",", limit = 3)
+                        if (parts.size >= 3) {
+                            val chapter = parts[0].trim()
+                            val question = parts[1].trim()
+                            val answer = parts[2].trim()
+                            if (question.isNotBlank() && answer.isNotBlank()) {
+                                viewModel.addFlashcard(com.example.data.Flashcard(exam = currentExam, subject = chapter, chapter = chapter, question = question, answer = answer))
+                            }
+                        }
+                        line = reader.readLine()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    if (reviewModeChapter != null) {
+        Dialog(
+            onDismissRequest = { reviewModeChapter = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            ReviewModeScreen(
+                chapterName = reviewModeChapter!!,
+                flashcards = reviewCards,
+                initialIndex = reviewModeStartIndex,
+                onClose = { reviewModeChapter = null },
+                viewModel = viewModel
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Flashcards", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                if (flashcards.isNotEmpty()) {
-                    Button(onClick = { reviewMode = true }) {
-                        Text("Review")
+                Row {
+                    IconButton(onClick = { importLauncher.launch("text/*") }) {
+                        Icon(Icons.Default.Add, contentDescription = "Import CSV")
+                    }
+                    if (flashcards.isNotEmpty()) {
+                        Button(onClick = { 
+                            reviewCards = flashcards
+                            reviewModeStartIndex = 0
+                            reviewModeChapter = "All Flashcards" 
+                        }) {
+                            Text("Review All")
+                        }
                     }
                 }
             }
@@ -1605,19 +1672,51 @@ fun FlashcardsScreen(viewModel: SyllabusViewModel) {
             
             if (flashcards.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No flashcards yet. Add one to start Active Recall!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("No flashcards yet. Add one or import CSV (Chapter, Question, Answer)!", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
             } else {
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(flashcards) { card ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(card.question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("A: ${card.answer}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val groupedFlashcards = flashcards.groupBy { it.chapter }
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    groupedFlashcards.forEach { (chapter, cards) ->
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp, top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = chapter,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                TextButton(onClick = {
+                                    reviewCards = cards
+                                    reviewModeStartIndex = 0
+                                    reviewModeChapter = chapter
+                                }) {
+                                    Text("Review Chapter")
+                                }
+                            }
+                        }
+                        itemsIndexed(cards, key = { _, card -> card.id }) { index, card ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    reviewCards = cards
+                                    reviewModeStartIndex = index
+                                    reviewModeChapter = chapter
+                                },
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(card.question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("A: ${card.answer}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    IconButton(onClick = { viewModel.deleteFlashcard(card) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
                         }
                     }
@@ -1634,15 +1733,43 @@ fun FlashcardsScreen(viewModel: SyllabusViewModel) {
     }
     
     if (showAddCardDialog) {
+        val allTopics by viewModel.allTopics.collectAsStateWithLifecycle()
+        val chapters = allTopics.map { it.name }.distinct().ifEmpty { listOf("General") }
+        
+        var chapter by remember { mutableStateOf(chapters.firstOrNull() ?: "General") }
         var question by remember { mutableStateOf("") }
         var answer by remember { mutableStateOf("") }
         val currentExam by viewModel.currentExam.collectAsStateWithLifecycle()
+        var expanded by remember { mutableStateOf(false) }
         
         AlertDialog(
             onDismissRequest = { showAddCardDialog = false },
             title = { Text("Add Flashcard") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextField(
+                            value = chapter,
+                            onValueChange = { chapter = it },
+                            label = { Text("Chapter") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            chapters.forEach { ch ->
+                                DropdownMenuItem(
+                                    text = { Text(ch) },
+                                    onClick = { chapter = ch; expanded = false }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = question,
                         onValueChange = { question = it },
@@ -1660,7 +1787,7 @@ fun FlashcardsScreen(viewModel: SyllabusViewModel) {
             confirmButton = {
                 TextButton(onClick = {
                     if (question.isNotBlank() && answer.isNotBlank() && currentExam != null) {
-                        viewModel.addFlashcard(com.example.data.Flashcard(exam = currentExam!!, subject = "General", question = question, answer = answer))
+                        viewModel.addFlashcard(com.example.data.Flashcard(exam = currentExam!!, subject = chapter, chapter = chapter, question = question, answer = answer))
                         showAddCardDialog = false
                     }
                 }) {
@@ -1674,47 +1801,162 @@ fun FlashcardsScreen(viewModel: SyllabusViewModel) {
             }
         )
     }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun ReviewModeScreen(
+    chapterName: String,
+    flashcards: List<com.example.data.Flashcard>,
+    initialIndex: Int = 0,
+    onClose: () -> Unit,
+    viewModel: SyllabusViewModel
+) {
+    var currentIndex by remember { mutableStateOf(initialIndex) }
+    if (currentIndex >= flashcards.size) {
+        onClose()
+        return
+    }
     
-    if (reviewMode && flashcards.isNotEmpty()) {
-        // Simple review mode dialog
-        var currentIndex by remember { mutableStateOf(0) }
-        var showAnswer by remember { mutableStateOf(false) }
-        val card = flashcards[currentIndex]
+    val card = flashcards[currentIndex]
+    var isFlipped by remember(card.id) { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = 32.dp, bottom = 16.dp)
+    ) {
+        // Top bar
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), 
+            horizontalArrangement = Arrangement.SpaceBetween, 
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            Text(chapterName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = { /* info */ }) { Icon(Icons.Default.Info, contentDescription = "Info") }
+        }
         
-        AlertDialog(
-            onDismissRequest = { reviewMode = false },
-            title = { Text("Review") },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(card.question, style = MaterialTheme.typography.headlineSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Spacer(modifier = Modifier.height(24.dp))
-                    if (showAnswer) {
-                        Text(card.answer, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    } else {
-                        Button(onClick = { showAnswer = true }) {
-                            Text("Show Answer")
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Progress bar
+        val progress = (currentIndex.toFloat() / flashcards.size.toFloat())
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(4.dp).clip(RoundedCornerShape(2.dp)),
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            color = MaterialTheme.colorScheme.primary
+        )
+        
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("${currentIndex} cards reviewed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${flashcards.size} cards", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Card with SwipeToDismiss
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
+            key(card.id) {
+                val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
+                    confirmValueChange = { dismissValue ->
+                        when (dismissValue) {
+                            androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> {
+                                viewModel.updateFlashcardProgress(card, 5) // Confident
+                                currentIndex++
+                                true
+                            }
+                            androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> {
+                                viewModel.updateFlashcardProgress(card, 1) // Need practice
+                                currentIndex++
+                                true
+                            }
+                            else -> false
                         }
                     }
-                }
-            },
-            confirmButton = {
-                if (showAnswer) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = {
-                            viewModel.updateFlashcardProgress(card, 1)
-                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
-                        }) { Text("Hard") }
-                        TextButton(onClick = {
-                            viewModel.updateFlashcardProgress(card, 3)
-                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
-                        }) { Text("Good") }
-                        TextButton(onClick = {
-                            viewModel.updateFlashcardProgress(card, 5)
-                            if (currentIndex < flashcards.size - 1) { currentIndex++; showAnswer = false } else { reviewMode = false }
-                        }) { Text("Easy") }
+                )
+                
+                androidx.compose.material3.SwipeToDismissBox(
+                    state = dismissState,
+                    backgroundContent = {
+                        val direction = dismissState.dismissDirection
+                        val color = when (direction) {
+                            androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> Color(0xFF4CAF50).copy(alpha = 0.2f) // Green for Confident
+                            androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> Color(0xFFF44336).copy(alpha = 0.2f) // Red for Need Practice
+                            else -> Color.Transparent
+                        }
+                        val alignment = when (direction) {
+                            androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                            androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                            else -> Alignment.Center
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(color, RoundedCornerShape(32.dp))
+                                .padding(horizontal = 32.dp),
+                            contentAlignment = alignment
+                        ) {
+                            if (direction == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) {
+                                Text("I remember this word", style = MaterialTheme.typography.titleMedium, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                            } else if (direction == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
+                                Text("I am still learning", style = MaterialTheme.typography.titleMedium, color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    },
+                    content = {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null
+                                ) { isFlipped = !isFlipped },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            shape = RoundedCornerShape(32.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp).fillMaxWidth()) {
+                                    Text(
+                                        text = card.question, 
+                                        style = MaterialTheme.typography.displayMedium, 
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    
+                                    if (isFlipped) {
+                                        Spacer(modifier = Modifier.height(32.dp))
+                                        Divider(modifier = Modifier.fillMaxWidth(0.5f), color = MaterialTheme.colorScheme.outlineVariant)
+                                        Spacer(modifier = Modifier.height(32.dp))
+                                        Text(
+                                            text = card.answer, 
+                                            style = MaterialTheme.typography.headlineSmall, 
+                                            color = MaterialTheme.colorScheme.primary,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.height(48.dp))
+                                        Text("Tap to reveal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
+                )
             }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        Text(
+            "Swipe right if you are confident,\\nand left if you need more practice", 
+            modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp, start = 24.dp, end = 24.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
         )
     }
 }
